@@ -15,7 +15,6 @@ use prisma_core::protocol::types::*;
 use prisma_core::types::MAX_FRAME_SIZE;
 use prisma_core::util;
 
-use crate::connector;
 use crate::proxy::ProxyContext;
 
 /// Run the port forwarding client: establish a persistent control tunnel
@@ -24,11 +23,7 @@ pub async fn run_port_forwards(ctx: ProxyContext, forwards: Vec<PortForwardConfi
     info!(count = forwards.len(), "Starting port forwarding");
 
     // Establish tunnel
-    let mut stream = if ctx.use_quic {
-        connector::connect_quic(&ctx.server_addr, ctx.skip_cert_verify).await?
-    } else {
-        connector::connect_tcp(&ctx.server_addr).await?
-    };
+    let mut stream = ctx.connect().await?;
 
     // Perform handshake
     let handshake = ClientHandshake::new(ctx.client_id, ctx.auth_secret, ctx.cipher_suite);

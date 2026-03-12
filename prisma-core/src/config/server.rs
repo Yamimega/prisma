@@ -15,6 +15,8 @@ pub struct ServerConfig {
     pub port_forwarding: PortForwardingConfig,
     #[serde(default)]
     pub management_api: ManagementApiConfig,
+    #[serde(default)]
+    pub camouflage: CamouflageConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,6 +139,29 @@ pub enum RuleCondition {
 pub enum RuleAction {
     Allow,
     Block,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CamouflageConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub fallback_addr: Option<String>,
+    #[serde(default)]
+    pub tls_on_tcp: bool,
+    #[serde(default = "super::default_alpn")]
+    pub alpn_protocols: Vec<String>,
+}
+
+impl Default for CamouflageConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            fallback_addr: None,
+            tls_on_tcp: false,
+            alpn_protocols: super::default_alpn(),
+        }
+    }
 }
 
 fn default_mgmt_listen_addr() -> String {

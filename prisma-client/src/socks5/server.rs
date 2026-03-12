@@ -7,7 +7,6 @@ use tracing::{debug, info, warn};
 
 use prisma_core::types::{ProxyAddress, ProxyDestination};
 
-use crate::connector;
 use crate::proxy::ProxyContext;
 use crate::relay;
 use crate::tunnel;
@@ -110,11 +109,7 @@ async fn handle_socks5_client(mut stream: TcpStream, ctx: &ProxyContext) -> Resu
     info!(dest = %destination, "SOCKS5 CONNECT");
 
     // === Phase 3: Connect to remote Prisma server and establish tunnel ===
-    let tunnel_stream = if ctx.use_quic {
-        connector::connect_quic(&ctx.server_addr, ctx.skip_cert_verify).await?
-    } else {
-        connector::connect_tcp(&ctx.server_addr).await?
-    };
+    let tunnel_stream = ctx.connect().await?;
 
     let tunnel_conn = tunnel::establish_tunnel(
         tunnel_stream,

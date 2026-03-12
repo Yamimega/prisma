@@ -5,10 +5,12 @@ use tokio::net::TcpStream;
 use tracing::debug;
 
 /// A transport connection to the remote Prisma server.
-/// Wraps TCP or QUIC into a unified AsyncRead + AsyncWrite.
+/// Wraps TCP, QUIC, or TLS-on-TCP into a unified AsyncRead + AsyncWrite.
+#[allow(clippy::large_enum_variant)]
 pub enum TransportStream {
     Tcp(TcpStream),
     Quic(QuicBiStream),
+    TcpTls(tokio_rustls::client::TlsStream<TcpStream>),
 }
 
 pub struct QuicBiStream {
@@ -25,6 +27,7 @@ impl AsyncRead for TransportStream {
         match self.get_mut() {
             TransportStream::Tcp(s) => std::pin::Pin::new(s).poll_read(cx, buf),
             TransportStream::Quic(s) => std::pin::Pin::new(&mut s.recv).poll_read(cx, buf),
+            TransportStream::TcpTls(s) => std::pin::Pin::new(s).poll_read(cx, buf),
         }
     }
 }
@@ -44,6 +47,7 @@ impl AsyncWrite for TransportStream {
                 }
                 std::task::Poll::Pending => std::task::Poll::Pending,
             },
+            TransportStream::TcpTls(s) => std::pin::Pin::new(s).poll_write(cx, buf),
         }
     }
 
@@ -60,6 +64,7 @@ impl AsyncWrite for TransportStream {
                 }
                 std::task::Poll::Pending => std::task::Poll::Pending,
             },
+            TransportStream::TcpTls(s) => std::pin::Pin::new(s).poll_flush(cx),
         }
     }
 
@@ -76,6 +81,7 @@ impl AsyncWrite for TransportStream {
                 }
                 std::task::Poll::Pending => std::task::Poll::Pending,
             },
+            TransportStream::TcpTls(s) => std::pin::Pin::new(s).poll_shutdown(cx),
         }
     }
 }
@@ -87,26 +93,35 @@ pub async fn connect_tcp(server_addr: &str) -> Result<TransportStream> {
     Ok(TransportStream::Tcp(stream))
 }
 
+/// Connect to the remote Prisma server via TCP wrapped in TLS.
+pub async fn connect_tcp_tls(
+    server_addr: &str,
+    server_name: &str,
+    skip_cert_verify: bool,
+    alpn_protocols: &[String],
+) -> Result<TransportStream> {
+    debug!(addr = %server_addr, sni = %server_name, "Connecting to server via TLS-on-TCP");
+
+    let tls_config = build_client_tls_config(skip_cert_verify, alpn_protocols);
+
+    let connector = tokio_rustls::TlsConnector::from(Arc::new(tls_config));
+    let tcp_stream = TcpStream::connect(server_addr).await?;
+    let sni = rustls::pki_types::ServerName::try_from(server_name.to_string())?;
+    let tls_stream = connector.connect(sni, tcp_stream).await?;
+
+    Ok(TransportStream::TcpTls(tls_stream))
+}
+
 /// Connect to the remote Prisma server via QUIC.
-pub async fn connect_quic(server_addr: &str, skip_cert_verify: bool) -> Result<TransportStream> {
+pub async fn connect_quic(
+    server_addr: &str,
+    skip_cert_verify: bool,
+    alpn_protocols: &[String],
+    server_name: &str,
+) -> Result<TransportStream> {
     debug!(addr = %server_addr, "Connecting to server via QUIC");
 
-    let tls_config = if skip_cert_verify {
-        let mut config = rustls::ClientConfig::builder()
-            .dangerous()
-            .with_custom_certificate_verifier(Arc::new(InsecureCertVerifier))
-            .with_no_client_auth();
-        config.alpn_protocols = vec![b"prisma-v1".to_vec()];
-        config
-    } else {
-        let mut roots = rustls::RootCertStore::empty();
-        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let mut config = rustls::ClientConfig::builder()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
-        config.alpn_protocols = vec![b"prisma-v1".to_vec()];
-        config
-    };
+    let tls_config = build_client_tls_config(skip_cert_verify, alpn_protocols);
 
     let client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config)?,
@@ -116,10 +131,34 @@ pub async fn connect_quic(server_addr: &str, skip_cert_verify: bool) -> Result<T
     endpoint.set_default_client_config(client_config);
 
     let addr = server_addr.parse()?;
-    let connection = endpoint.connect(addr, "prisma-server")?.await?;
+    let connection = endpoint.connect(addr, server_name)?.await?;
     let (send, recv) = connection.open_bi().await?;
 
     Ok(TransportStream::Quic(QuicBiStream { send, recv }))
+}
+
+/// Build a `rustls::ClientConfig` with optional cert verification and ALPN.
+fn build_client_tls_config(
+    skip_cert_verify: bool,
+    alpn_protocols: &[String],
+) -> rustls::ClientConfig {
+    let mut config = if skip_cert_verify {
+        rustls::ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(InsecureCertVerifier))
+            .with_no_client_auth()
+    } else {
+        let mut roots = rustls::RootCertStore::empty();
+        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        rustls::ClientConfig::builder()
+            .with_root_certificates(roots)
+            .with_no_client_auth()
+    };
+    config.alpn_protocols = alpn_protocols
+        .iter()
+        .map(|s| s.as_bytes().to_vec())
+        .collect();
+    config
 }
 
 /// Certificate verifier that accepts any certificate (dev mode only).

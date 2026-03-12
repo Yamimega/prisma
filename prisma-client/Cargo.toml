@@ -17,6 +17,8 @@ clap = { workspace = true }
 bytes = { workspace = true }
 uuid = { workspace = true }
 webpki-roots = "0.26"
+tokio-rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

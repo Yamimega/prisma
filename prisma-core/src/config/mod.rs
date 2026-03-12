@@ -2,6 +2,10 @@ pub mod client;
 pub mod server;
 pub mod validation;
 
+pub(crate) fn default_alpn() -> Vec<String> {
+    vec!["h2".into(), "http/1.1".into()]
+}
+
 use crate::error::ConfigError;
 
 /// Load server config from file path with layered overrides:

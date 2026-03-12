@@ -18,6 +18,7 @@ use prisma_core::util;
 use prisma_core::state::{ConnectionInfo, ServerState, SessionMode, Transport};
 
 use crate::auth::AuthStore;
+use crate::camouflage;
 use crate::forward;
 use crate::outbound;
 use crate::relay;
@@ -46,43 +47,107 @@ pub async fn handle_tcp_connection(
     };
     info!(session_id = %session_keys.session_id, "Handshake complete (TCP)");
 
-    // Register connection in state
-    let bytes_up = Arc::new(AtomicU64::new(0));
-    let bytes_down = Arc::new(AtomicU64::new(0));
-    let conn_info = ConnectionInfo {
-        session_id: session_keys.session_id,
-        client_id: Some(session_keys.client_id.0),
-        client_name: None,
-        peer_addr,
-        transport: Transport::Tcp,
-        mode: SessionMode::Unknown,
-        connected_at: Utc::now(),
-        bytes_up: bytes_up.clone(),
-        bytes_down: bytes_down.clone(),
-    };
-    let session_id = session_keys.session_id;
-    state
-        .connections
-        .write()
-        .await
-        .insert(session_id, conn_info);
-
     let (read, write) = stream.into_split();
-    let result = handle_session(
-        session_keys,
-        read,
-        write,
-        dns_cache,
-        forward_config,
-        state.clone(),
-        bytes_up,
-        bytes_down,
+    run_registered_session(
+        session_keys, read, write, Transport::Tcp, peer_addr,
+        dns_cache, forward_config, state,
     )
-    .await;
+    .await
+}
 
-    // Remove connection from state
-    state.connections.write().await.remove(&session_id);
-    result
+/// Handle an incoming TCP connection with camouflage: peek first 3 bytes to
+/// decide whether this is a PrismaVeil client or a probe/browser that should
+/// be relayed to the decoy fallback.
+pub async fn handle_tcp_connection_camouflaged<S>(
+    mut stream: S,
+    auth: AuthStore,
+    dns_cache: DnsCache,
+    forward_config: PortForwardingConfig,
+    state: ServerState,
+    peer_addr: String,
+    fallback_addr: Option<String>,
+) -> Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    // Peek first 3 bytes with a timeout
+    let mut peek = [0u8; 3];
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        stream.read_exact(&mut peek),
+    )
+    .await
+    {
+        Ok(Ok(_)) => {}
+        Ok(Err(e)) => return Err(e.into()),
+        Err(_) => {
+            // Timeout reading peek bytes — treat as probe
+            if let Some(ref fallback) = fallback_addr {
+                let _ = camouflage::decoy_relay(stream, fallback, &[]).await;
+            }
+            return Ok(());
+        }
+    }
+
+    if !camouflage::looks_like_prisma_hello(&peek) {
+        // Not a Prisma client — relay to decoy
+        if let Some(ref fallback) = fallback_addr {
+            let _ = camouflage::decoy_relay(stream, fallback, &peek).await;
+        }
+        return Ok(());
+    }
+
+    // It looks like Prisma: read the rest of the ClientHello frame
+    let frame_len = u16::from_be_bytes([peek[0], peek[1]]) as usize;
+    let mut client_hello_buf = vec![0u8; frame_len];
+    // The first byte after length prefix is peek[2] (version byte)
+    client_hello_buf[0] = peek[2];
+    if frame_len > 1 {
+        stream.read_exact(&mut client_hello_buf[1..]).await?;
+    }
+
+    let (server_hello_bytes, server_state) =
+        match ServerHandshake::process_client_hello(&client_hello_buf) {
+            Ok(result) => result,
+            Err(e) => {
+                // Invalid ClientHello — relay to decoy with reconstructed frame
+                warn!(error = %e, "Invalid ClientHello in camouflaged connection");
+                if let Some(ref fallback) = fallback_addr {
+                    let mut frame_bytes = Vec::with_capacity(2 + frame_len);
+                    frame_bytes.extend_from_slice(&peek[0..2]);
+                    frame_bytes.extend_from_slice(&client_hello_buf);
+                    let _ = camouflage::decoy_relay(stream, fallback, &frame_bytes).await;
+                }
+                return Ok(());
+            }
+        };
+
+    util::write_framed(&mut stream, &server_hello_bytes).await?;
+
+    let client_auth_buf = util::read_framed(&mut stream).await?;
+
+    let (accept_bytes, session_keys) = match server_state.process_client_auth(&client_auth_buf, &auth) {
+        Ok(result) => result,
+        Err(e) => {
+            state
+                .metrics
+                .handshake_failures
+                .fetch_add(1, Ordering::Relaxed);
+            // Auth failure inside TLS is indistinguishable from a normal HTTPS close
+            return Err(e.into());
+        }
+    };
+
+    util::write_framed(&mut stream, &accept_bytes).await?;
+
+    info!(session_id = %session_keys.session_id, "Handshake complete (TCP camouflaged)");
+
+    let (read, write) = tokio::io::split(stream);
+    run_registered_session(
+        session_keys, read, write, Transport::Tcp, peer_addr,
+        dns_cache, forward_config, state,
+    )
+    .await
 }
 
 /// Handle an incoming QUIC bidirectional stream.
@@ -107,40 +172,11 @@ pub async fn handle_quic_stream(
     };
     info!(session_id = %session_keys.session_id, "Handshake complete (QUIC)");
 
-    let bytes_up = Arc::new(AtomicU64::new(0));
-    let bytes_down = Arc::new(AtomicU64::new(0));
-    let conn_info = ConnectionInfo {
-        session_id: session_keys.session_id,
-        client_id: Some(session_keys.client_id.0),
-        client_name: None,
-        peer_addr,
-        transport: Transport::Quic,
-        mode: SessionMode::Unknown,
-        connected_at: Utc::now(),
-        bytes_up: bytes_up.clone(),
-        bytes_down: bytes_down.clone(),
-    };
-    let session_id = session_keys.session_id;
-    state
-        .connections
-        .write()
-        .await
-        .insert(session_id, conn_info);
-
-    let result = handle_session(
-        session_keys,
-        recv,
-        send,
-        dns_cache,
-        forward_config,
-        state.clone(),
-        bytes_up,
-        bytes_down,
+    run_registered_session(
+        session_keys, recv, send, Transport::Quic, peer_addr,
+        dns_cache, forward_config, state,
     )
-    .await;
-
-    state.connections.write().await.remove(&session_id);
-    result
+    .await
 }
 
 /// Unified handshake over any AsyncRead + AsyncWrite pair.
@@ -167,6 +203,57 @@ where
     util::write_framed(writer, &accept_bytes).await?;
 
     Ok(session_keys)
+}
+
+/// Register a session in state, run it, then clean up on exit.
+async fn run_registered_session<R, W>(
+    session_keys: SessionKeys,
+    read: R,
+    write: W,
+    transport: Transport,
+    peer_addr: String,
+    dns_cache: DnsCache,
+    forward_config: PortForwardingConfig,
+    state: ServerState,
+) -> Result<()>
+where
+    R: AsyncRead + Unpin + Send + 'static,
+    W: AsyncWrite + Unpin + Send + 'static,
+{
+    let bytes_up = Arc::new(AtomicU64::new(0));
+    let bytes_down = Arc::new(AtomicU64::new(0));
+    let conn_info = ConnectionInfo {
+        session_id: session_keys.session_id,
+        client_id: Some(session_keys.client_id.0),
+        client_name: None,
+        peer_addr,
+        transport,
+        mode: SessionMode::Unknown,
+        connected_at: Utc::now(),
+        bytes_up: bytes_up.clone(),
+        bytes_down: bytes_down.clone(),
+    };
+    let session_id = session_keys.session_id;
+    state
+        .connections
+        .write()
+        .await
+        .insert(session_id, conn_info);
+
+    let result = handle_session(
+        session_keys,
+        read,
+        write,
+        dns_cache,
+        forward_config,
+        state.clone(),
+        bytes_up,
+        bytes_down,
+    )
+    .await;
+
+    state.connections.write().await.remove(&session_id);
+    result
 }
 
 async fn handle_session<R, W>(

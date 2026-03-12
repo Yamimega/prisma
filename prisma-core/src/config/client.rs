@@ -19,6 +19,12 @@ pub struct ClientConfig {
     pub logging: LoggingConfig,
     #[serde(default)]
     pub port_forwards: Vec<PortForwardConfig>,
+    #[serde(default)]
+    pub tls_on_tcp: bool,
+    #[serde(default = "super::default_alpn")]
+    pub alpn_protocols: Vec<String>,
+    #[serde(default)]
+    pub tls_server_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

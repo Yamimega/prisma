@@ -16,6 +16,10 @@ pub struct ConfigResponse {
     pub port_forwarding_range: String,
     pub logging_level: String,
     pub logging_format: String,
+    pub camouflage_enabled: bool,
+    pub camouflage_tls_on_tcp: bool,
+    pub camouflage_fallback_addr: Option<String>,
+    pub camouflage_alpn: Vec<String>,
 }
 
 pub async fn get_config(State(state): State<ServerState>) -> Json<ConfigResponse> {
@@ -33,6 +37,10 @@ pub async fn get_config(State(state): State<ServerState>) -> Json<ConfigResponse
         ),
         logging_level: cfg.logging.level.clone(),
         logging_format: cfg.logging.format.clone(),
+        camouflage_enabled: cfg.camouflage.enabled,
+        camouflage_tls_on_tcp: cfg.camouflage.tls_on_tcp,
+        camouflage_fallback_addr: cfg.camouflage.fallback_addr.clone(),
+        camouflage_alpn: cfg.camouflage.alpn_protocols.clone(),
     })
 }
 

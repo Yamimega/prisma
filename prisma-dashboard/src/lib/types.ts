@@ -48,6 +48,10 @@ export interface ConfigResponse {
   port_forwarding_range: string;
   logging_level: string;
   logging_format: string;
+  camouflage_enabled: boolean;
+  camouflage_tls_on_tcp: boolean;
+  camouflage_fallback_addr: string | null;
+  camouflage_alpn: string[];
 }
 
 export interface TlsInfoResponse {

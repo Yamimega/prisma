@@ -82,11 +82,30 @@ export default function SettingsPage() {
               <CardTitle>Camouflage</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Coming Soon &mdash; Camouflage settings will allow you to configure traffic
-                obfuscation and protocol mimicry to make proxy traffic blend in with normal
-                HTTPS traffic.
-              </p>
+              {config ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    <span className={config.camouflage_enabled ? "text-green-600 dark:text-green-400 font-medium" : "text-muted-foreground"}>
+                      {config.camouflage_enabled ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">TLS on TCP</span>
+                    <span>{config.camouflage_tls_on_tcp ? "Yes" : "No"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Fallback</span>
+                    <span className="font-mono text-xs">{config.camouflage_fallback_addr || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">ALPN</span>
+                    <span className="font-mono text-xs">{config.camouflage_alpn?.join(", ") || "—"}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
             </CardContent>
           </Card>
         </div>

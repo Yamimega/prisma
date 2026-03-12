@@ -5,7 +5,6 @@ use tracing::{debug, info, warn};
 
 use prisma_core::types::{ProxyAddress, ProxyDestination};
 
-use crate::connector;
 use crate::proxy::ProxyContext;
 use crate::relay;
 use crate::tunnel;
@@ -75,11 +74,7 @@ async fn handle_http_client(stream: TcpStream, ctx: &ProxyContext) -> Result<()>
     info!(dest = %destination, "HTTP CONNECT");
 
     // Establish tunnel to remote Prisma server
-    let tunnel_stream = if ctx.use_quic {
-        connector::connect_quic(&ctx.server_addr, ctx.skip_cert_verify).await?
-    } else {
-        connector::connect_tcp(&ctx.server_addr).await?
-    };
+    let tunnel_stream = ctx.connect().await?;
 
     let tunnel_conn = tunnel::establish_tunnel(
         tunnel_stream,

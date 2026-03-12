@@ -52,6 +52,9 @@ pub async fn run(config_path: &str) -> Result<()> {
         cipher_suite,
         use_quic,
         skip_cert_verify: config.skip_cert_verify,
+        tls_on_tcp: config.tls_on_tcp,
+        alpn_protocols: config.alpn_protocols.clone(),
+        tls_server_name: config.tls_server_name.clone(),
     };
 
     // Start SOCKS5 server

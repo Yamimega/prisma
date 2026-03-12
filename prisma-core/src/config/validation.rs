@@ -41,6 +41,19 @@ pub fn validate_server_config(config: &ServerConfig) -> Result<(), ConfigError> 
     validate_logging_level(&config.logging.level)?;
     validate_logging_format(&config.logging.format)?;
 
+    // Camouflage validation
+    if config.camouflage.tls_on_tcp && config.tls.is_none() {
+        return Err(ConfigError::ValidationFailed(
+            "camouflage.tls_on_tcp requires [tls] config (cert_path and key_path)".into(),
+        ));
+    }
+    if config.camouflage.enabled && config.camouflage.fallback_addr.is_none() {
+        tracing::warn!(
+            "camouflage.enabled is true but fallback_addr is not set; \
+             non-Prisma connections will be dropped instead of proxied to a decoy"
+        );
+    }
+
     Ok(())
 }
 
@@ -87,6 +100,23 @@ pub fn validate_client_config(config: &ClientConfig) -> Result<(), ConfigError> 
 
     validate_logging_level(&config.logging.level)?;
     validate_logging_format(&config.logging.format)?;
+
+    // tls_on_tcp validation
+    if config.tls_on_tcp {
+        // Ensure we can derive a server name
+        let has_server_name = config.tls_server_name.is_some()
+            || config
+                .server_addr
+                .split(':')
+                .next()
+                .map(|h| !h.is_empty() && h.parse::<std::net::IpAddr>().is_err())
+                .unwrap_or(false);
+        if !has_server_name {
+            return Err(ConfigError::ValidationFailed(
+                "tls_on_tcp requires tls_server_name or a hostname (not IP) in server_addr".into(),
+            ));
+        }
+    }
 
     Ok(())
 }

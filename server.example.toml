@@ -25,6 +25,13 @@ enabled = true
 port_range_start = 10000
 port_range_end = 20000
 
+# Camouflage — anti-active-detection for censorship resistance
+# [camouflage]
+# enabled = true
+# tls_on_tcp = true                           # Wrap TCP transport in TLS (reuses [tls] cert/key)
+# fallback_addr = "example.com:443"           # Decoy site for non-Prisma connections
+# alpn_protocols = ["h2", "http/1.1"]         # TLS ALPN (also used for QUIC when enabled)
+
 # Management API — enables the dashboard and REST/WebSocket API
 [management_api]
 enabled = true

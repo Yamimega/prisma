@@ -22,6 +22,11 @@ name = "my-api"
 local_addr = "127.0.0.1:8000"
 remote_port = 10081
 
+# Camouflage — must match server camouflage settings
+# tls_on_tcp = true                           # Connect via TLS-on-TCP instead of plain TCP
+# tls_server_name = "example.com"             # SNI for TLS (defaults to server_addr hostname)
+# alpn_protocols = ["h2", "http/1.1"]         # TLS ALPN protocols
+
 [logging]
 level = "info"
 format = "pretty"

@@ -126,7 +126,16 @@ fn build_tls_config(config: &ServerConfig) -> Result<rustls::ServerConfig> {
         .with_no_client_auth()
         .with_single_cert(certs, key)?;
 
-    tls_config.alpn_protocols = vec![b"prisma-v1".to_vec()];
+    if config.camouflage.enabled && !config.camouflage.alpn_protocols.is_empty() {
+        tls_config.alpn_protocols = config
+            .camouflage
+            .alpn_protocols
+            .iter()
+            .map(|s| s.as_bytes().to_vec())
+            .collect();
+    } else {
+        tls_config.alpn_protocols = vec![b"prisma-v1".to_vec()];
+    }
 
     Ok(tls_config)
 }
