@@ -1,0 +1,28 @@
+---
+source: prisma-core/tests/protocol_snapshots.rs
+expression: encoded
+---
+- 2
+- 0
+- 0
+- 0
+- 0
+- 1
+- 71
+- 69
+- 84
+- 32
+- 47
+- 32
+- 72
+- 84
+- 84
+- 80
+- 47
+- 49
+- 46
+- 49
+- 13
+- 10
+- 13
+- 10

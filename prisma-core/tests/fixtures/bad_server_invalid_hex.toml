@@ -1,0 +1,7 @@
+listen_addr = "0.0.0.0:8443"
+quic_listen_addr = "0.0.0.0:8443"
+
+[[authorized_clients]]
+id = "550e8400-e29b-41d4-a716-446655440000"
+auth_secret = "not_valid_hex_at_all"
+name = "bad-client"

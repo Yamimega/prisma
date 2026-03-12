@@ -1,0 +1,3 @@
+listen_addr = "0.0.0.0:8443"
+quic_listen_addr = "0.0.0.0:8443"
+authorized_clients = []

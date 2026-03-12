@@ -1,0 +1,17 @@
+[package]
+name = "prisma-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+prisma-core = { path = "../prisma-core" }
+prisma-server = { path = "../prisma-server" }
+prisma-client = { path = "../prisma-client" }
+tokio = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+rcgen = { workspace = true }
+rand = { workspace = true }
+uuid = { workspace = true }

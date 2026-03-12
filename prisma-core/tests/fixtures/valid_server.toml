@@ -1,0 +1,15 @@
+listen_addr = "0.0.0.0:8443"
+quic_listen_addr = "0.0.0.0:8443"
+
+[[authorized_clients]]
+id = "550e8400-e29b-41d4-a716-446655440000"
+auth_secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+name = "test-client"
+
+[logging]
+level = "debug"
+format = "pretty"
+
+[performance]
+max_connections = 512
+connection_timeout_secs = 60

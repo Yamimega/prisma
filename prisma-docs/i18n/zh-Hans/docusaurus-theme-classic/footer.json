@@ -1,0 +1,32 @@
+{
+  "link.title.Documentation": {
+    "message": "文档"
+  },
+  "link.title.Security": {
+    "message": "安全"
+  },
+  "link.title.More": {
+    "message": "更多"
+  },
+  "link.item.label.Getting Started": {
+    "message": "快速开始"
+  },
+  "link.item.label.Configuration": {
+    "message": "配置"
+  },
+  "link.item.label.CLI Reference": {
+    "message": "CLI 参考"
+  },
+  "link.item.label.PrismaVeil Protocol": {
+    "message": "PrismaVeil 协议"
+  },
+  "link.item.label.Cryptography": {
+    "message": "密码学"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 Prisma Proxy。基于 Docusaurus 构建。"
+  }
+}

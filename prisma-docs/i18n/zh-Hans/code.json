@@ -1,0 +1,29 @@
+{
+  "homepage.getStarted": {
+    "message": "快速开始"
+  },
+  "homepage.title": {
+    "message": "首页"
+  },
+  "homepage.description": {
+    "message": "Prisma Proxy — 基于 Rust 构建的新一代加密代理基础设施"
+  },
+  "homepage.features.dualTransport.title": {
+    "message": "双重传输"
+  },
+  "homepage.features.dualTransport.description": {
+    "message": "QUIC 为主，TCP 备用。通过 QUIC/TLS 内嵌 PrismaVeil 实现双重加密，提供纵深防御。"
+  },
+  "homepage.features.modernCrypto.title": {
+    "message": "现代密码学"
+  },
+  "homepage.features.modernCrypto.description": {
+    "message": "X25519 ECDH、BLAKE3 KDF、ChaCha20-Poly1305 / AES-256-GCM AEAD，配合抗重放保护。"
+  },
+  "homepage.features.portForwarding.title": {
+    "message": "端口转发"
+  },
+  "homepage.features.portForwarding.description": {
+    "message": "通过加密隧道将本地服务暴露到服务器，实现 frp 风格的反向代理。"
+  }
+}

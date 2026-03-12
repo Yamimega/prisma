@@ -1,0 +1,22 @@
+[package]
+name = "prisma-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+prisma-core = { path = "../prisma-core" }
+tokio = { workspace = true }
+quinn = { workspace = true }
+rustls = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+bytes = { workspace = true }
+uuid = { workspace = true }
+webpki-roots = "0.26"
+
+[dev-dependencies]
+tokio-test = { workspace = true }

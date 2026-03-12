@@ -1,0 +1,7 @@
+socks5_listen_addr = "127.0.0.1:1080"
+server_addr = "127.0.0.1:8443"
+cipher_suite = "rot13"
+
+[identity]
+client_id = "550e8400-e29b-41d4-a716-446655440000"
+auth_secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

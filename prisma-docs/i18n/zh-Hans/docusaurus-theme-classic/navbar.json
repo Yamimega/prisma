@@ -1,0 +1,11 @@
+{
+  "title": {
+    "message": "Prisma Proxy"
+  },
+  "item.label.Docs": {
+    "message": "文档"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub"
+  }
+}

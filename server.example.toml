@@ -1,0 +1,33 @@
+listen_addr = "0.0.0.0:8443"
+quic_listen_addr = "0.0.0.0:8443"
+
+[tls]
+cert_path = "prisma-cert.pem"
+key_path = "prisma-key.pem"
+
+# Generate keys with: cargo run -p prisma-cli -- gen-key
+[[authorized_clients]]
+id = "00000000-0000-0000-0000-000000000001"
+auth_secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+name = "my-client"
+
+[logging]
+level = "info"
+format = "pretty"
+
+[performance]
+max_connections = 1024
+connection_timeout_secs = 300
+
+# Port forwarding (reverse proxy) — allow clients to expose local services
+[port_forwarding]
+enabled = true
+port_range_start = 10000
+port_range_end = 20000
+
+# Management API — enables the dashboard and REST/WebSocket API
+[management_api]
+enabled = true
+listen_addr = "127.0.0.1:9090"
+auth_token = "your-secure-token-here"
+cors_origins = ["http://localhost:3000"]

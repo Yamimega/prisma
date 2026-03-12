@@ -1,0 +1,25 @@
+[Unit]
+Description=Prisma Proxy Client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=prisma
+Group=prisma
+ExecStart=/usr/local/bin/prisma client -c /etc/prisma/client.toml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadOnlyPaths=/etc/prisma
+WorkingDirectory=/etc/prisma
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=prisma-client
+
+[Install]
+WantedBy=multi-user.target

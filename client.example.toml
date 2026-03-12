@@ -1,0 +1,27 @@
+socks5_listen_addr = "127.0.0.1:1080"
+http_listen_addr = "127.0.0.1:8080"  # optional, remove to disable HTTP proxy
+server_addr = "127.0.0.1:8443"
+cipher_suite = "chacha20-poly1305"
+transport = "quic"
+skip_cert_verify = true
+
+# Must match a key generated with: cargo run -p prisma-cli -- gen-key
+[identity]
+client_id = "00000000-0000-0000-0000-000000000001"
+auth_secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+# Port forwarding (reverse proxy) — expose local services through the server
+# Each entry maps a local service to a port on the server
+[[port_forwards]]
+name = "my-web-app"
+local_addr = "127.0.0.1:3000"
+remote_port = 10080
+
+[[port_forwards]]
+name = "my-api"
+local_addr = "127.0.0.1:8000"
+remote_port = 10081
+
+[logging]
+level = "info"
+format = "pretty"

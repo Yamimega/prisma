@@ -1,0 +1,36 @@
+# Rust
+/target
+Cargo.lock
+
+# Editor
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Secrets / TLS
+.env
+*.pem
+*.crt
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs (Docusaurus)
+prisma-docs/node_modules/
+prisma-docs/build/
+prisma-docs/.docusaurus/
+
+# Dashboard (Next.js)
+prisma-dashboard/node_modules/
+prisma-dashboard/.next/
+prisma-dashboard/out/
+prisma-dashboard/.vercel
+prisma-dashboard/.env*
+prisma-dashboard/*.tsbuildinfo
+prisma-dashboard/next-env.d.ts
+
+# Misc
+prisma-plan.md
