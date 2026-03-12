@@ -14,7 +14,7 @@ This guide walks you through building Prisma from source and running your first 
 ## Build
 
 ```bash
-git clone <repo-url> && cd prisma
+git clone https://github.com/Yamimega/prisma.git && cd prisma
 cargo build --release
 ```
 

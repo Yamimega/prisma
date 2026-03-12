@@ -24,6 +24,10 @@ The server is configured via a TOML file (default: `server.toml`). Configuration
 | `port_forwarding.enabled` | bool | `false` | Enable port forwarding / reverse proxy |
 | `port_forwarding.port_range_start` | u16 | `1024` | Minimum allowed forwarded port |
 | `port_forwarding.port_range_end` | u16 | `65535` | Maximum allowed forwarded port |
+| `management_api.enabled` | bool | `false` | Enable the management REST/WS API |
+| `management_api.listen_addr` | string | `"127.0.0.1:9090"` | Management API bind address |
+| `management_api.auth_token` | string | — | Bearer token for API authentication |
+| `management_api.cors_origins` | string[] | `[]` | Allowed CORS origins for the dashboard |
 
 ## Full example
 
@@ -54,6 +58,13 @@ connection_timeout_secs = 300 # idle timeout in seconds
 enabled = true
 port_range_start = 10000
 port_range_end = 20000
+
+# Management API — enables the dashboard and REST/WebSocket API
+[management_api]
+enabled = true
+listen_addr = "127.0.0.1:9090"
+auth_token = "your-secure-token-here"
+cors_origins = ["http://localhost:3000"]
 ```
 
 ## Validation rules
@@ -92,3 +103,17 @@ id = "client-uuid-2"
 auth_secret = "hex-secret-2"
 name = "phone"
 ```
+
+Clients can also be managed at runtime via the [Management API](/docs/features/management-api) or the [Dashboard](/docs/features/dashboard) without restarting the server.
+
+## Management API configuration
+
+The management API is disabled by default. When enabled, it starts an HTTP server (axum) that serves both REST endpoints and WebSocket connections.
+
+:::warning
+The `auth_token` protects all management API endpoints. Use a strong, random token in production. The dashboard's server-side proxy hides this token from the browser.
+:::
+
+**Bind address**: By default the API listens on `127.0.0.1:9090` (localhost only). To expose it to the network, change `listen_addr` — but ensure you have proper network-level access controls in place.
+
+**CORS origins**: Required when running the dashboard on a different origin (e.g. `http://localhost:3000` during development). In production behind a reverse proxy, you may not need CORS.

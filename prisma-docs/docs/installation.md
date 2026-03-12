@@ -17,7 +17,7 @@ This compiles and installs the `prisma` binary into your Cargo bin directory (us
 ## Build from source
 
 ```bash
-git clone <repo-url> && cd prisma
+git clone https://github.com/Yamimega/prisma.git && cd prisma
 cargo build --release
 ```
 

@@ -18,20 +18,26 @@ Prisma is a next-generation encrypted proxy infrastructure suite built in Rust. 
 - **SOCKS5 proxy interface** (RFC 1928) for application compatibility
 - **HTTP CONNECT proxy** for browsers and HTTP-aware clients
 - **Port forwarding / reverse proxy** — expose local services through the server (frp-style)
+- **Routing rules engine** — domain/IP/port-based allow/block filtering
+- **Management API** — REST + WebSocket API for live monitoring and control
+- **Web dashboard** — real-time Next.js dashboard with metrics, client management, and log streaming
 - **DNS caching** with async resolution
 - **Connection backpressure** via configurable max connection limits
-- **Structured logging** (pretty or JSON) via `tracing`
+- **Structured logging** (pretty or JSON) via `tracing` with broadcast support
 
 ## Architecture
 
-Prisma is organized into four crates:
+Prisma is organized into six crates plus a dashboard:
 
 ```
 prisma/
-├── prisma-core/     # Shared library: crypto, protocol, config, types
-├── prisma-server/   # Proxy server (TCP + QUIC inbound)
-├── prisma-client/   # Proxy client (SOCKS5 + HTTP CONNECT inbound)
-└── prisma-cli/      # CLI wrapper with key/cert generation
+├── prisma-core/       # Shared library: crypto, protocol, config, types, state
+├── prisma-server/     # Proxy server (TCP + QUIC inbound)
+├── prisma-client/     # Proxy client (SOCKS5 + HTTP CONNECT inbound)
+├── prisma-mgmt/       # Management API (REST + WebSocket via axum)
+├── prisma-cli/        # CLI wrapper with key/cert generation
+├── prisma-dashboard/  # Web dashboard (Next.js + shadcn/ui)
+└── prisma-docs/       # Documentation site (Docusaurus)
 ```
 
 ### Data flow — outbound proxy
@@ -48,4 +54,12 @@ Port forwarding allows you to expose local services behind NAT/firewalls through
 
 ```
 Internet ──TCP──▶ prisma-server:port ──PrismaVeil──▶ prisma-client ──TCP──▶ Local Service
+```
+
+### Data flow — management & dashboard
+
+The management API provides live observability and control. The dashboard communicates with the management API via a server-side proxy to keep the API token secure.
+
+```
+Browser ──HTTP──▶ prisma-dashboard (Next.js) ──REST/WS──▶ prisma-mgmt (axum) ──▶ ServerState
 ```

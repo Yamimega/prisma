@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Prisma Dashboard
 
-## Getting Started
+Real-time web dashboard for monitoring and managing the [Prisma](https://github.com/Yamimega/prisma) proxy server.
 
-First, run the development server:
+## Prerequisites
+
+- Node.js 18+
+- A running Prisma server with the management API enabled (`management_api.enabled = true`)
+
+## Setup
+
+```bash
+npm install
+```
+
+Create `.env.local`:
+
+```env
+MGMT_API_URL=http://127.0.0.1:9090
+MGMT_API_TOKEN=your-secure-token-here
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your-dashboard-password
+AUTH_SECRET=$(openssl rand -base64 32)
+```
+
+## Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Production
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+npm start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Pages
 
-## Learn More
+| Page | Description |
+|------|-------------|
+| **Overview** | Live metrics, traffic chart, active connections |
+| **Server** | Health, config, TLS info |
+| **Clients** | Add/remove/toggle clients at runtime |
+| **Routing** | Visual routing rules editor |
+| **Logs** | Real-time log stream with filtering |
+| **Settings** | Server config editor |
 
-To learn more about Next.js, take a look at the following resources:
+## Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js 16](https://nextjs.org/) (App Router + Turbopack)
+- [shadcn/ui](https://ui.shadcn.com/) (component library)
+- [Recharts](https://recharts.org/) (traffic charts)
+- [TanStack Query](https://tanstack.com/query) (data fetching)
+- [NextAuth v5](https://authjs.dev/) (authentication)
