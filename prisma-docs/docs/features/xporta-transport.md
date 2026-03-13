@@ -23,6 +23,30 @@ XHTTP stream-one works well, but a single long-lived HTTP/2 stream with `applica
 
 XPorta splits the proxy tunnel into three logical channels — session, upload, and download — each using standard HTTP semantics that any CDN passes through without issue.
 
+```mermaid
+graph LR
+    subgraph Client
+        A[Proxy Data]
+    end
+
+    subgraph "XPorta Layer"
+        B["POST /api/auth<br/>(Session)"]
+        C["POST /api/v1/*<br/>(Upload)"]
+        D["GET /api/v1/*<br/>(Long-Poll Download)"]
+    end
+
+    subgraph "CDN / Server"
+        E[Origin Server]
+    end
+
+    A --> B
+    A --> C
+    A --> D
+    B --> E
+    C --> E
+    D --> E
+```
+
 ### Session establishment
 
 The client initiates a session by sending a POST to `session_path` (e.g., `/api/auth`) with a JSON body:
@@ -105,7 +129,7 @@ Small payloads (under a configurable threshold) use JSON encoding; large payload
 
 ## Server configuration
 
-```toml
+```toml title="server.toml"
 [cdn]
 enabled = true
 listen_addr = "0.0.0.0:443"
@@ -137,7 +161,7 @@ key_path = "origin-key.pem"
 
 ## Client configuration
 
-```toml
+```toml title="client.toml"
 transport = "xporta"
 
 [xporta]

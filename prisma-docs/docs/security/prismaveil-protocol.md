@@ -18,29 +18,17 @@ PrismaVeil is the custom wire protocol used between the Prisma client and server
 
 The v3 handshake reduces latency from 2 RTT (v1/v2) to 1 RTT by combining authentication into the initial key exchange:
 
-```
-Client                                    Server
-  │                                         │
-  │──── ClientInit ─────────────────────▶│  Step 1
-  │     (version=0x03, flags,             │
-  │      X25519 pubkey, client_id,        │
-  │      timestamp, cipher_suite,         │
-  │      auth_token, padding)             │
-  │                                         │
-  │  Server: ECDH → preliminary key        │
-  │                                         │
-  │◀──── ServerInit (encrypted) ─────────│  Step 2
-  │     (status, session_id,              │
-  │      X25519 pubkey, challenge,        │
-  │      padding_range, features,         │
-  │      session_ticket, padding)         │
-  │                                         │
-  │  Client: Derive final session key      │
-  │                                         │
-  │──── ChallengeResponse (encrypted) ──▶│  First data frame
-  │     (BLAKE3(challenge))               │
-  │                                         │
-  │════ Encrypted data frames ════════════│
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    C->>S: ClientInit (version=0x03, flags, X25519 pubkey, client_id, timestamp, cipher_suite, auth_token, padding)
+    Note over S: ECDH → preliminary key
+    S->>C: ServerInit [encrypted] (status, session_id, X25519 pubkey, challenge, padding_range, features, session_ticket, padding)
+    Note over C: Derive final session key
+    C->>S: ChallengeResponse [encrypted] (BLAKE3(challenge))
+    Note over C,S: Encrypted data frames
 ```
 
 ### ClientInit
@@ -80,13 +68,14 @@ Client                                    Server
 
 Subsequent connections can use session tickets to skip the full handshake:
 
-```
-Client                                    Server
-  │──── ClientResume ───────────────────▶│
-  │     (version=0x03, flags=RESUMPTION,  │
-  │      X25519 pubkey, session_ticket,   │
-  │      encrypted_0rtt_data)             │
-  │◀──── ServerResume ──────────────────│
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    C->>S: ClientResume (version=0x03, flags=RESUMPTION, X25519 pubkey, session_ticket, encrypted_0rtt_data)
+    S->>C: ServerResume
+    Note over C,S: Encrypted data frames (resumed)
 ```
 
 Anti-replay protection: Server maintains a bloom filter of used session tickets.

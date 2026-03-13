@@ -46,22 +46,31 @@ prisma/
 
 When used as an outbound proxy, applications connect to the local SOCKS5 or HTTP CONNECT interface. The client encrypts traffic with the PrismaVeil protocol and sends it over QUIC or TCP to the server, which forwards it to the destination.
 
-```
-Application ──SOCKS5/HTTP──▶ prisma-client ──PrismaVeil/QUIC──▶ prisma-server ──TCP──▶ Destination
+```mermaid
+graph LR
+    A[Application] -->|SOCKS5 / HTTP| B[prisma-client]
+    B -->|PrismaVeil / QUIC| C[prisma-server]
+    C -->|TCP| D[Destination]
 ```
 
 ### Data flow — port forwarding (reverse proxy)
 
 Port forwarding allows you to expose local services behind NAT/firewalls through the Prisma server. External connections arrive at the server and are relayed through the encrypted tunnel to the client's local service.
 
-```
-Internet ──TCP──▶ prisma-server:port ──PrismaVeil──▶ prisma-client ──TCP──▶ Local Service
+```mermaid
+graph LR
+    A[Internet] -->|TCP| B["prisma-server:port"]
+    B -->|PrismaVeil| C[prisma-client]
+    C -->|TCP| D[Local Service]
 ```
 
 ### Data flow — management & dashboard
 
 The management API provides live observability and control. The dashboard communicates with the management API via a server-side proxy to keep the API token secure.
 
-```
-Browser ──HTTP──▶ prisma-dashboard (Next.js) ──REST/WS──▶ prisma-mgmt (axum) ──▶ ServerState
+```mermaid
+graph LR
+    A[Browser] -->|HTTP| B["prisma-dashboard (Next.js)"]
+    B -->|REST / WS| C["prisma-mgmt (axum)"]
+    C --> D[ServerState]
 ```

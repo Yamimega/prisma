@@ -83,7 +83,7 @@ The client is configured via a TOML file (default: `client.toml`). Configuration
 
 ## Full example
 
-```toml
+```toml title="client.toml"
 socks5_listen_addr = "127.0.0.1:1080"
 http_listen_addr = "127.0.0.1:8080"  # optional, remove to disable HTTP proxy
 server_addr = "127.0.0.1:8443"

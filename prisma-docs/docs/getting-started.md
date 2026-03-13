@@ -47,7 +47,7 @@ This creates `prisma-cert.pem` and `prisma-key.pem` in the current directory.
 
 Create `server.toml`:
 
-```toml
+```toml title="server.toml"
 listen_addr = "0.0.0.0:8443"
 quic_listen_addr = "0.0.0.0:8443"
 
@@ -73,7 +73,7 @@ connection_timeout_secs = 300
 
 Create `client.toml`:
 
-```toml
+```toml title="client.toml"
 socks5_listen_addr = "127.0.0.1:1080"
 http_listen_addr = "127.0.0.1:8080"
 server_addr = "<server-ip>:8443"

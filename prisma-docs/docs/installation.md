@@ -2,39 +2,52 @@
 sidebar_position: 3
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Installation
 
 ## One-Line Install
 
 The fastest way to get Prisma running. Automatically detects your OS and architecture.
 
-**Linux / macOS:**
+<Tabs>
+  <TabItem value="linux" label="Linux / macOS" default>
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Yamimega/prisma/master/install.sh | bash
 ```
 
-**Windows (PowerShell):**
+  </TabItem>
+  <TabItem value="windows" label="Windows (PowerShell)">
 
 ```powershell
 irm https://raw.githubusercontent.com/Yamimega/prisma/master/install.ps1 | iex
 ```
 
+  </TabItem>
+</Tabs>
+
 ### Install + Setup
 
 Add `--setup` to also generate credentials, TLS certificates, and example config files:
 
-**Linux / macOS:**
+<Tabs>
+  <TabItem value="linux" label="Linux / macOS" default>
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Yamimega/prisma/master/install.sh | bash -s -- --setup
 ```
 
-**Windows (PowerShell):**
+  </TabItem>
+  <TabItem value="windows" label="Windows (PowerShell)">
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Yamimega/prisma/master/install.ps1))) -Setup
 ```
+
+  </TabItem>
+</Tabs>
 
 This creates:
 - `.prisma-credentials` — client ID and auth secret
@@ -45,59 +58,78 @@ This creates:
 
 Set `PRISMA_INSTALL_DIR` to install to a different location:
 
+<Tabs>
+  <TabItem value="linux" label="Linux / macOS" default>
+
 ```bash
 PRISMA_INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/Yamimega/prisma/master/install.sh | bash
 ```
+
+  </TabItem>
+  <TabItem value="windows" label="Windows (PowerShell)">
 
 ```powershell
 $env:PRISMA_INSTALL_DIR = "C:\tools\prisma"; irm https://raw.githubusercontent.com/Yamimega/prisma/master/install.ps1 | iex
 ```
 
+  </TabItem>
+</Tabs>
+
 ## Platform-Specific Downloads
 
 If you prefer to download the binary directly:
 
-**Linux (x86_64):**
+<Tabs>
+  <TabItem value="linux-x64" label="Linux x86_64" default>
 
 ```bash
 curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-amd64 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma
 ```
 
-**Linux (aarch64):**
+  </TabItem>
+  <TabItem value="linux-arm64" label="Linux aarch64">
 
 ```bash
 curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-arm64 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma
 ```
 
-**Linux (ARMv7 / Raspberry Pi):**
+  </TabItem>
+  <TabItem value="linux-armv7" label="Linux ARMv7">
 
 ```bash
 curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-armv7 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma
 ```
 
-**macOS (Apple Silicon / Intel):**
+  </TabItem>
+  <TabItem value="macos" label="macOS">
 
 ```bash
 curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-darwin-$(uname -m | sed s/x86_64/amd64/) -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma
 ```
 
-**Windows (x64, PowerShell):**
+  </TabItem>
+  <TabItem value="windows-x64" label="Windows x64">
 
 ```powershell
 New-Item -Force -ItemType Directory "$env:LOCALAPPDATA\prisma" | Out-Null; Invoke-WebRequest -Uri "https://github.com/Yamimega/prisma/releases/latest/download/prisma-windows-amd64.exe" -OutFile "$env:LOCALAPPDATA\prisma\prisma.exe"; [Environment]::SetEnvironmentVariable("Path", "$([Environment]::GetEnvironmentVariable('Path','User'));$env:LOCALAPPDATA\prisma", "User")
 ```
 
-**Windows (ARM64, PowerShell):**
+  </TabItem>
+  <TabItem value="windows-arm64" label="Windows ARM64">
 
 ```powershell
 New-Item -Force -ItemType Directory "$env:LOCALAPPDATA\prisma" | Out-Null; Invoke-WebRequest -Uri "https://github.com/Yamimega/prisma/releases/latest/download/prisma-windows-arm64.exe" -OutFile "$env:LOCALAPPDATA\prisma\prisma.exe"; [Environment]::SetEnvironmentVariable("Path", "$([Environment]::GetEnvironmentVariable('Path','User'));$env:LOCALAPPDATA\prisma", "User")
 ```
 
-**FreeBSD (x86_64):**
+  </TabItem>
+  <TabItem value="freebsd" label="FreeBSD">
 
 ```bash
 fetch -o /usr/local/bin/prisma https://github.com/Yamimega/prisma/releases/latest/download/prisma-freebsd-amd64 && chmod +x /usr/local/bin/prisma
 ```
+
+  </TabItem>
+</Tabs>
 
 ## Install via Cargo
 

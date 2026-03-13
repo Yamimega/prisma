@@ -81,7 +81,7 @@ The server is configured via a TOML file (default: `server.toml`). Configuration
 
 ## Full example
 
-```toml
+```toml title="server.toml"
 listen_addr = "0.0.0.0:8443"
 quic_listen_addr = "0.0.0.0:8443"
 
