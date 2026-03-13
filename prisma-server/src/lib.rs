@@ -11,6 +11,7 @@ pub mod state;
 pub mod udp_relay;
 pub mod ws_stream;
 pub mod xhttp_stream;
+pub mod xporta_stream;
 
 use std::sync::Arc;
 

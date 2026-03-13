@@ -122,11 +122,17 @@ Both client and server can inject headers to make traffic look like normal web b
 
 ## Comparison with other transports
 
-| Feature | QUIC | TCP | WebSocket | gRPC | XHTTP |
-|---------|------|-----|-----------|------|-------|
-| Looks like normal HTTP | No | No | Upgrade header | grpc content-type | Yes |
-| CDN-compatible | No | No | Yes | Partial | Yes |
-| Per-connection overhead | Low | Low | Medium | Medium | Low (stream-one) |
-| Multiple upload modes | No | No | No | No | 3 modes |
-| SSE disguise | N/A | N/A | N/A | N/A | Yes |
-| Header obfuscation | N/A | N/A | Basic | No | Full |
+| Feature | QUIC | TCP | WebSocket | gRPC | XHTTP | XPorta |
+|---------|------|-----|-----------|------|-------|--------|
+| Looks like normal HTTP | No | No | Upgrade header | grpc content-type | Yes | Yes |
+| CDN-compatible | No | No | Yes | Partial | Yes | Yes |
+| DPI resistance | Low | Low | Medium | Medium | High | Highest |
+| Active probe resistant | No | No | No | No | No | Yes |
+| Per-connection overhead | Low | Low | Medium | Medium | Low (stream-one) | Low |
+| Multiple upload modes | No | No | No | No | 3 modes | Upload + long-poll |
+| SSE disguise | N/A | N/A | N/A | N/A | Yes | N/A |
+| Header obfuscation | N/A | N/A | Basic | No | Full | Full |
+
+:::tip
+For maximum stealth against DPI, consider [XPorta transport](/docs/features/xporta-transport) — it fragments traffic into short-lived REST API-style requests that are indistinguishable from normal web application traffic.
+:::

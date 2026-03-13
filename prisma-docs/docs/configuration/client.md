@@ -16,7 +16,7 @@ The client is configured via a TOML file (default: `client.toml`). Configuration
 | `identity.client_id` | string | — | Client UUID (must match server config) |
 | `identity.auth_secret` | string | — | 64 hex character shared secret (must match server config) |
 | `cipher_suite` | string | `"chacha20-poly1305"` | `chacha20-poly1305` / `aes-256-gcm` |
-| `transport` | string | `"quic"` | `quic` / `tcp` / `ws` / `grpc` / `xhttp` |
+| `transport` | string | `"quic"` | `quic` / `tcp` / `ws` / `grpc` / `xhttp` / `xporta` |
 | `skip_cert_verify` | bool | `false` | Skip TLS certificate verification |
 | `tls_on_tcp` | bool | `false` | Connect via TLS-wrapped TCP (must match server camouflage) |
 | `tls_server_name` | string? | — | TLS SNI server name override (defaults to server_addr hostname) |
@@ -35,6 +35,16 @@ The client is configured via a TOML file (default: `client.toml`). Configuration
 | `xhttp_download_url` | string? | — | XHTTP download URL for packet-up |
 | `xhttp_stream_url` | string? | — | XHTTP stream URL for stream-one |
 | `xhttp_extra_headers` | \[\[k,v\]\] | `[]` | Extra XHTTP request headers |
+| `xporta.base_url` | string? | — | XPorta server base URL (e.g. `https://your-domain.com`) |
+| `xporta.session_path` | string | `"/api/auth"` | XPorta session initialization endpoint |
+| `xporta.data_paths` | string[] | `["/api/v1/data", ...]` | XPorta upload endpoint paths |
+| `xporta.poll_paths` | string[] | `["/api/v1/notifications", ...]` | XPorta long-poll download paths |
+| `xporta.encoding` | string | `"json"` | XPorta encoding: `"json"` / `"binary"` / `"auto"` |
+| `xporta.poll_concurrency` | u8 | `3` | Concurrent pending poll requests (1-8) |
+| `xporta.upload_concurrency` | u8 | `4` | Concurrent upload requests (1-8) |
+| `xporta.max_payload_size` | u32 | `65536` | Max payload bytes per request |
+| `xporta.poll_timeout_secs` | u16 | `55` | Long-poll timeout in seconds (10-90) |
+| `xporta.extra_headers` | \[\[k,v\]\] | `[]` | Extra XPorta request headers |
 | `xmux.max_connections_min` | u16 | `1` | Min connections in pool |
 | `xmux.max_connections_max` | u16 | `4` | Max connections in pool |
 | `xmux.max_concurrency_min` | u16 | `8` | Min concurrency per connection |
@@ -111,11 +121,17 @@ The client config is validated at startup. The following rules are enforced:
 - `identity.client_id` must not be empty
 - `identity.auth_secret` must be valid hex
 - `cipher_suite` must be one of: `chacha20-poly1305`, `aes-256-gcm`
-- `transport` must be one of: `quic`, `tcp`, `ws`, `grpc`, `xhttp`
+- `transport` must be one of: `quic`, `tcp`, `ws`, `grpc`, `xhttp`, `xporta`
 - `xhttp_mode` (when transport is `xhttp`) must be one of: `packet-up`, `stream-up`, `stream-one`
 - `xhttp_mode = "stream-one"` requires `xhttp_stream_url`
 - `xhttp_mode = "packet-up"` or `"stream-up"` requires `xhttp_upload_url` and `xhttp_download_url`
 - XMUX ranges must have min ≤ max
+- `transport = "xporta"` requires `xporta.base_url` to be set
+- XPorta: all paths must start with `/`
+- XPorta: `data_paths` and `poll_paths` must not be empty or overlap
+- XPorta: `encoding` must be one of: `json`, `binary`, `auto`
+- XPorta: `poll_concurrency` must be 1-8, `upload_concurrency` must be 1-8
+- XPorta: `poll_timeout_secs` must be 10-90
 - `logging.level` must be one of: `trace`, `debug`, `info`, `warn`, `error`
 - `logging.format` must be one of: `pretty`, `json`
 
@@ -136,6 +152,23 @@ If your network blocks UDP traffic, use the TCP transport:
 ```toml
 transport = "tcp"
 ```
+
+### XPorta (maximum stealth — CDN)
+
+Next-generation CDN transport that fragments proxy data into many short-lived REST API-style requests. Traffic is indistinguishable from a normal SPA making API calls.
+
+```toml
+transport = "xporta"
+
+[xporta]
+base_url = "https://your-domain.com"
+session_path = "/api/auth"
+data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+encoding = "json"
+```
+
+See [XPorta Transport](/docs/features/xporta-transport) for detailed configuration.
 
 ## Disabling HTTP proxy
 

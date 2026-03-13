@@ -257,6 +257,8 @@ async fn run_speed_test(
         xhttp_upload_url: config.xhttp_upload_url.clone(),
         xhttp_download_url: config.xhttp_download_url.clone(),
         xhttp_extra_headers: config.xhttp_extra_headers.clone(),
+        use_xporta: config.transport == "xporta",
+        xporta_config: config.xporta.clone(),
         user_agent: config.user_agent.clone(),
         referer: config.referer.clone(),
         congestion_mode,
@@ -453,6 +455,7 @@ fn print_version() {
     println!("  - Smart/Fake/Tunnel DNS modes");
     println!("  - Rule-based routing (domain/IP/port)");
     println!("  - Per-client bandwidth limits and traffic quotas");
+    println!("  - XPorta transport (REST API simulation, CDN-compatible)");
     println!();
     println!("v2 features:");
     println!("  - Per-frame padding with configurable ranges");
@@ -469,5 +472,6 @@ fn print_version() {
     println!("  - tcp");
     println!("  - ws    (WebSocket, CDN-compatible)");
     println!("  - grpc  (gRPC, CDN-compatible)");
-    println!("  - xhttp (HTTP-native, CDN-compatible)");
+    println!("  - xhttp  (HTTP-native, CDN-compatible)");
+    println!("  - xporta (REST API simulation, CDN-compatible)");
 }

@@ -39,6 +39,20 @@ remote_port = 10081
 # xhttp_download_url = "https://your-domain.com/api/v1/events" # packet-up download
 # xhttp_extra_headers = [["X-Custom", "value"]]     # extra request headers
 
+# XPorta transport — next-gen CDN transport indistinguishable from REST API traffic
+# transport = "xporta"
+# [xporta]
+# base_url = "https://your-domain.com"
+# session_path = "/api/auth"
+# data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+# poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+# encoding = "json"                                  # "json" | "binary" | "auto"
+# poll_concurrency = 3                               # 1-8, concurrent pending polls
+# upload_concurrency = 4                             # 1-8, concurrent upload requests
+# max_payload_size = 65536                           # bytes per request
+# poll_timeout_secs = 55                             # 10-90, < Cloudflare's 100s limit
+# extra_headers = [["X-App-Version", "2.1.0"]]       # extra request headers
+
 # XMUX connection pool — randomize connection lifecycles
 # [xmux]
 # max_connections_min = 1

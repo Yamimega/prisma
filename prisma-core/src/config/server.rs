@@ -245,6 +245,9 @@ pub struct CdnConfig {
     pub xhttp_extra_headers: Vec<(String, String)>,
     #[serde(default)]
     pub xhttp_nosse: bool,
+    // XPorta transport (next-gen CDN transport)
+    #[serde(default)]
+    pub xporta: Option<XPortaServerConfig>,
     // Header obfuscation
     #[serde(default)]
     pub response_server_header: Option<String>,
@@ -273,6 +276,7 @@ impl Default for CdnConfig {
             xhttp_mode: None,
             xhttp_extra_headers: Vec::new(),
             xhttp_nosse: false,
+            xporta: None,
             response_server_header: None,
             padding_header: true,
             enable_sse_disguise: false,
@@ -345,6 +349,65 @@ fn default_port_range_start() -> u16 {
 }
 fn default_port_range_end() -> u16 {
     65535
+}
+
+/// XPorta server configuration — next-generation CDN transport.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XPortaServerConfig {
+    /// Whether XPorta transport is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Session initialization path.
+    #[serde(default = "default_xporta_session_path")]
+    pub session_path: String,
+    /// Upload data paths (must match client config).
+    #[serde(default = "default_xporta_data_paths")]
+    pub data_paths: Vec<String>,
+    /// Long-poll download paths (must match client config).
+    #[serde(default = "default_xporta_poll_paths")]
+    pub poll_paths: Vec<String>,
+    /// Session timeout in seconds.
+    #[serde(default = "default_xporta_session_timeout")]
+    pub session_timeout_secs: u64,
+    /// Maximum concurrent sessions per client.
+    #[serde(default = "default_xporta_max_sessions")]
+    pub max_sessions_per_client: u16,
+    /// Cookie name for session tokens.
+    #[serde(default = "default_xporta_cookie_name")]
+    pub cookie_name: String,
+    /// Payload encoding: "json" (default) or "binary".
+    #[serde(default = "default_xporta_encoding")]
+    pub encoding: String,
+}
+
+fn default_xporta_session_path() -> String {
+    "/api/auth".into()
+}
+fn default_xporta_data_paths() -> Vec<String> {
+    vec![
+        "/api/v1/data".into(),
+        "/api/v1/sync".into(),
+        "/api/v1/update".into(),
+    ]
+}
+fn default_xporta_poll_paths() -> Vec<String> {
+    vec![
+        "/api/v1/notifications".into(),
+        "/api/v1/feed".into(),
+        "/api/v1/events".into(),
+    ]
+}
+fn default_xporta_session_timeout() -> u64 {
+    300
+}
+fn default_xporta_max_sessions() -> u16 {
+    8
+}
+fn default_xporta_cookie_name() -> String {
+    "_sess".into()
+}
+fn default_xporta_encoding() -> String {
+    "json".into()
 }
 
 fn default_level() -> String {

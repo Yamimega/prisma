@@ -10,6 +10,9 @@ use tracing::{info, warn};
 
 use crate::connector::{self, TransportStream};
 use crate::dns_resolver::DnsResolver;
+use crate::xporta_stream;
+use prisma_core::config::client::XPortaClientConfig;
+use prisma_core::xporta::types::XPortaEncoding;
 
 /// Shared configuration for all proxy sessions (SOCKS5 and HTTP).
 #[derive(Clone)]
@@ -34,6 +37,8 @@ pub struct ProxyContext {
     pub xhttp_upload_url: Option<String>,
     pub xhttp_download_url: Option<String>,
     pub xhttp_extra_headers: Vec<(String, String)>,
+    pub use_xporta: bool,
+    pub xporta_config: Option<XPortaClientConfig>,
     pub user_agent: Option<String>,
     pub referer: Option<String>,
     pub congestion_mode: CongestionMode,
@@ -48,7 +53,9 @@ pub struct ProxyContext {
 impl ProxyContext {
     /// Connect to the remote Prisma server using the configured transport.
     pub async fn connect(&self) -> Result<TransportStream> {
-        let transport = if self.use_xhttp {
+        let transport = if self.use_xporta {
+            "XPorta"
+        } else if self.use_xhttp {
             "XHTTP"
         } else if self.use_ws {
             "WebSocket"
@@ -71,7 +78,36 @@ impl ProxyContext {
             &self.alpn_protocols
         };
 
-        let result = if self.use_xhttp {
+        let result = if self.use_xporta {
+            let xporta_cfg = self
+                .xporta_config
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("XPorta transport requires xporta config"))?;
+
+            let encoding = XPortaEncoding::from_str(&xporta_cfg.encoding)
+                .unwrap_or(XPortaEncoding::Json);
+
+            let config = xporta_stream::XPortaConfig {
+                base_url: xporta_cfg.base_url.clone(),
+                session_path: xporta_cfg.session_path.clone(),
+                data_paths: xporta_cfg.data_paths.clone(),
+                poll_paths: xporta_cfg.poll_paths.clone(),
+                encoding,
+                poll_concurrency: xporta_cfg.poll_concurrency,
+                upload_concurrency: xporta_cfg.upload_concurrency,
+                max_payload_size: xporta_cfg.max_payload_size,
+                poll_timeout_secs: xporta_cfg.poll_timeout_secs,
+                extra_headers: xporta_cfg.extra_headers.clone(),
+                user_agent: self.user_agent.clone(),
+                referer: self.referer.clone(),
+                cookie_name: xporta_cfg.cookie_name.clone(),
+            };
+
+            let client_id_hex = self.client_id.0.to_string();
+            let stream =
+                xporta_stream::connect_xporta(&config, &client_id_hex, &self.auth_secret).await?;
+            Ok(TransportStream::XPorta(stream))
+        } else if self.use_xhttp {
             let stream_url = self
                 .xhttp_stream_url
                 .as_deref()

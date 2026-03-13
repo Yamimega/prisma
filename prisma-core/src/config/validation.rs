@@ -151,6 +151,58 @@ pub fn validate_server_config(config: &ServerConfig) -> Result<(), ConfigError> 
         }
     }
 
+    // XPorta validation (within CDN)
+    if let Some(ref xporta) = config.cdn.xporta {
+        if xporta.enabled {
+            if !xporta.session_path.starts_with('/') {
+                return Err(ConfigError::ValidationFailed(
+                    "cdn.xporta.session_path must start with '/'".into(),
+                ));
+            }
+            if xporta.data_paths.is_empty() {
+                return Err(ConfigError::ValidationFailed(
+                    "cdn.xporta.data_paths must not be empty".into(),
+                ));
+            }
+            if xporta.poll_paths.is_empty() {
+                return Err(ConfigError::ValidationFailed(
+                    "cdn.xporta.poll_paths must not be empty".into(),
+                ));
+            }
+            for path in &xporta.data_paths {
+                if !path.starts_with('/') {
+                    return Err(ConfigError::ValidationFailed(format!(
+                        "cdn.xporta.data_paths entry \"{}\" must start with '/'",
+                        path
+                    )));
+                }
+            }
+            for path in &xporta.poll_paths {
+                if !path.starts_with('/') {
+                    return Err(ConfigError::ValidationFailed(format!(
+                        "cdn.xporta.poll_paths entry \"{}\" must start with '/'",
+                        path
+                    )));
+                }
+            }
+            for dp in &xporta.data_paths {
+                if xporta.poll_paths.contains(dp) {
+                    return Err(ConfigError::ValidationFailed(format!(
+                        "cdn.xporta.data_paths and poll_paths must not overlap (\"{}\")",
+                        dp
+                    )));
+                }
+            }
+            let valid_enc = ["json", "binary"];
+            if !valid_enc.contains(&xporta.encoding.as_str()) {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "cdn.xporta.encoding must be one of: {:?}",
+                    valid_enc
+                )));
+            }
+        }
+    }
+
     // Padding validation
     if config.padding.min > config.padding.max {
         return Err(ConfigError::ValidationFailed(
@@ -230,7 +282,7 @@ pub fn validate_client_config(config: &ClientConfig) -> Result<(), ConfigError> 
         )));
     }
 
-    let valid_transports = ["quic", "tcp", "ws", "grpc", "xhttp"];
+    let valid_transports = ["quic", "tcp", "ws", "grpc", "xhttp", "xporta"];
     if !valid_transports.contains(&config.transport.as_str()) {
         return Err(ConfigError::ValidationFailed(format!(
             "transport must be one of: {:?}",
@@ -277,6 +329,82 @@ pub fn validate_client_config(config: &ClientConfig) -> Result<(), ConfigError> 
         {
             return Err(ConfigError::ValidationFailed(
                 "xhttp_mode \"packet-up\" or \"stream-up\" requires xhttp_upload_url and xhttp_download_url".into(),
+            ));
+        }
+    }
+
+    // XPorta transport validation
+    if config.transport == "xporta" {
+        let xporta = config.xporta.as_ref().ok_or_else(|| {
+            ConfigError::ValidationFailed(
+                "transport = \"xporta\" requires [xporta] config section".into(),
+            )
+        })?;
+        if xporta.base_url.is_empty() {
+            return Err(ConfigError::ValidationFailed(
+                "xporta.base_url must not be empty".into(),
+            ));
+        }
+        if !xporta.session_path.starts_with('/') {
+            return Err(ConfigError::ValidationFailed(
+                "xporta.session_path must start with '/'".into(),
+            ));
+        }
+        if xporta.data_paths.is_empty() {
+            return Err(ConfigError::ValidationFailed(
+                "xporta.data_paths must not be empty".into(),
+            ));
+        }
+        if xporta.poll_paths.is_empty() {
+            return Err(ConfigError::ValidationFailed(
+                "xporta.poll_paths must not be empty".into(),
+            ));
+        }
+        for path in &xporta.data_paths {
+            if !path.starts_with('/') {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "xporta.data_paths entry \"{}\" must start with '/'",
+                    path
+                )));
+            }
+        }
+        for path in &xporta.poll_paths {
+            if !path.starts_with('/') {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "xporta.poll_paths entry \"{}\" must start with '/'",
+                    path
+                )));
+            }
+        }
+        // Check data_paths and poll_paths don't overlap
+        for dp in &xporta.data_paths {
+            if xporta.poll_paths.contains(dp) {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "xporta.data_paths and poll_paths must not overlap (\"{}\" found in both)",
+                    dp
+                )));
+            }
+        }
+        let valid_encodings = ["json", "binary", "auto"];
+        if !valid_encodings.contains(&xporta.encoding.as_str()) {
+            return Err(ConfigError::ValidationFailed(format!(
+                "xporta.encoding must be one of: {:?}",
+                valid_encodings
+            )));
+        }
+        if !(1..=8).contains(&xporta.poll_concurrency) {
+            return Err(ConfigError::ValidationFailed(
+                "xporta.poll_concurrency must be 1-8".into(),
+            ));
+        }
+        if !(1..=8).contains(&xporta.upload_concurrency) {
+            return Err(ConfigError::ValidationFailed(
+                "xporta.upload_concurrency must be 1-8".into(),
+            ));
+        }
+        if !(10..=90).contains(&xporta.poll_timeout_secs) {
+            return Err(ConfigError::ValidationFailed(
+                "xporta.poll_timeout_secs must be 10-90".into(),
             ));
         }
     }

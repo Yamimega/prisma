@@ -17,10 +17,13 @@ use crate::listener::grpc_tunnel::TunnelServiceImpl;
 use crate::listener::reverse_proxy::{self, ProxyState};
 use crate::listener::ws_tunnel::{self, CdnState};
 use crate::listener::xhttp;
+use crate::listener::xporta;
 use crate::state::ServerContext;
 use prisma_core::cache::DnsCache;
 use prisma_core::config::server::ServerConfig;
 use prisma_core::proto::tunnel::prisma_tunnel_server::PrismaTunnelServer;
+use prisma_core::xporta::session::derive_cookie_key;
+use prisma_core::xporta::types::XPortaEncoding;
 
 pub async fn listen(
     config: &ServerConfig,
@@ -94,6 +97,58 @@ fn build_cdn_router(
         .route(&cdn.xhttp_stream_path, post(xhttp::stream_handler))
         .with_state(xhttp_state);
     app = app.merge(xhttp_router);
+
+    // 3b. XPorta transport routes
+    if let Some(ref xporta_cfg) = cdn.xporta {
+        if xporta_cfg.enabled {
+            // Derive cookie key from first authorized client's auth_secret
+            let first_secret = config
+                .authorized_clients
+                .first()
+                .map(|c| {
+                    prisma_core::util::hex_decode_32(&c.auth_secret)
+                        .unwrap_or([0u8; 32])
+                })
+                .unwrap_or([0u8; 32]);
+            let cookie_key = derive_cookie_key(&first_secret);
+            let encoding = XPortaEncoding::from_str(&xporta_cfg.encoding)
+                .unwrap_or(XPortaEncoding::Json);
+
+            let xporta_sessions = Arc::new(dashmap::DashMap::new());
+
+            let xporta_state = xporta::XPortaState {
+                cdn: cdn_state.clone(),
+                sessions: xporta_sessions.clone(),
+                cookie_key,
+                encoding,
+                cookie_name: xporta_cfg.cookie_name.clone(),
+                session_timeout_secs: xporta_cfg.session_timeout_secs,
+            };
+
+            // Register session init route
+            let mut xporta_router = Router::new()
+                .route(&xporta_cfg.session_path, post(xporta::session_init_handler));
+
+            // Register data (upload) routes
+            for path in &xporta_cfg.data_paths {
+                xporta_router = xporta_router.route(path, post(xporta::upload_handler));
+            }
+
+            // Register poll (download) routes
+            for path in &xporta_cfg.poll_paths {
+                xporta_router = xporta_router.route(path, get(xporta::poll_handler));
+            }
+
+            let xporta_router_final = xporta_router.with_state(xporta_state);
+            app = app.merge(xporta_router_final);
+
+            // Spawn session cleanup task
+            xporta::spawn_session_cleanup(xporta_sessions, xporta_cfg.session_timeout_secs);
+
+            info!("XPorta transport enabled with {} data paths and {} poll paths",
+                xporta_cfg.data_paths.len(), xporta_cfg.poll_paths.len());
+        }
+    }
 
     // 4. Management API + dashboard on subpath (optional)
     if cdn.expose_management_api {

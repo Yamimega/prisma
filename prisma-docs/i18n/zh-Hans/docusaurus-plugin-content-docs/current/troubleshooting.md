@@ -93,6 +93,31 @@ port_range_end = 20000
 connection_timeout_secs = 600  # 10 分钟
 ```
 
+## XPorta 会话问题
+
+**症状：** XPorta 传输无法连接或频繁断开。
+
+**原因：**
+- 服务端 `[cdn.xporta]` 未启用或路径与客户端配置不匹配
+- 会话过期（默认 300 秒空闲超时）
+- 客户端和服务端配置中的 `data_paths` / `poll_paths` 存在重叠
+
+**解决方案：**
+
+1. 验证服务端已启用 XPorta：
+
+```toml
+[cdn.xporta]
+enabled = true
+session_path = "/api/auth"
+data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+```
+
+2. 确保 `session_path`、`data_paths` 和 `poll_paths` 在客户端和服务端之间完全匹配
+3. 检查 `encoding` 是否兼容（服务端 `"json"` 或 `"binary"`，客户端可使用 `"auto"`）
+4. 对于 Cloudflare 部署，验证 `poll_timeout_secs` 在 100 以下（默认 55）
+
 ## 调试日志
 
 启用 debug 或 trace 日志以诊断问题：

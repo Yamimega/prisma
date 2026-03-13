@@ -31,28 +31,7 @@ pub struct XhttpState {
     pub sessions: std::sync::Arc<SessionMap>,
 }
 
-/// Extract real client IP from headers (reuses CDN logic).
-fn extract_peer_ip(headers: &HeaderMap, addr: &std::net::SocketAddr) -> String {
-    // CF-Connecting-IP > X-Real-IP > X-Forwarded-For > socket addr
-    if let Some(val) = headers.get("cf-connecting-ip") {
-        if let Ok(ip) = val.to_str() {
-            return ip.to_string();
-        }
-    }
-    if let Some(val) = headers.get("x-real-ip") {
-        if let Ok(ip) = val.to_str() {
-            return ip.to_string();
-        }
-    }
-    if let Some(val) = headers.get("x-forwarded-for") {
-        if let Ok(s) = val.to_str() {
-            if let Some(first) = s.split(',').next() {
-                return first.trim().to_string();
-            }
-        }
-    }
-    addr.to_string()
-}
+use super::extract_peer_ip;
 
 /// POST /upload-path — packet-up mode: receives chunked body, each chunk is a PrismaVeil frame.
 /// Creates a session on first POST (identified by X-Session-ID header).

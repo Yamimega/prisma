@@ -8,6 +8,7 @@ use tracing::debug;
 use crate::grpc_stream::GrpcStream;
 use crate::ws_stream::WsStream;
 use crate::xhttp_stream::XhttpStream;
+use crate::xporta_stream::XPortaClientStream;
 
 /// A transport connection to the remote Prisma server.
 /// Wraps TCP, QUIC, or TLS-on-TCP into a unified AsyncRead + AsyncWrite.
@@ -19,6 +20,7 @@ pub enum TransportStream {
     WebSocket(WsStream),
     Grpc(GrpcStream),
     Xhttp(XhttpStream),
+    XPorta(XPortaClientStream),
 }
 
 pub struct QuicBiStream {
@@ -39,6 +41,7 @@ impl AsyncRead for TransportStream {
             TransportStream::WebSocket(s) => std::pin::Pin::new(s).poll_read(cx, buf),
             TransportStream::Grpc(s) => std::pin::Pin::new(s).poll_read(cx, buf),
             TransportStream::Xhttp(s) => std::pin::Pin::new(s).poll_read(cx, buf),
+            TransportStream::XPorta(s) => std::pin::Pin::new(s).poll_read(cx, buf),
         }
     }
 }
@@ -62,6 +65,7 @@ impl AsyncWrite for TransportStream {
             TransportStream::WebSocket(s) => std::pin::Pin::new(s).poll_write(cx, buf),
             TransportStream::Grpc(s) => std::pin::Pin::new(s).poll_write(cx, buf),
             TransportStream::Xhttp(s) => std::pin::Pin::new(s).poll_write(cx, buf),
+            TransportStream::XPorta(s) => std::pin::Pin::new(s).poll_write(cx, buf),
         }
     }
 
@@ -82,6 +86,7 @@ impl AsyncWrite for TransportStream {
             TransportStream::WebSocket(s) => std::pin::Pin::new(s).poll_flush(cx),
             TransportStream::Grpc(s) => std::pin::Pin::new(s).poll_flush(cx),
             TransportStream::Xhttp(s) => std::pin::Pin::new(s).poll_flush(cx),
+            TransportStream::XPorta(s) => std::pin::Pin::new(s).poll_flush(cx),
         }
     }
 
@@ -102,6 +107,7 @@ impl AsyncWrite for TransportStream {
             TransportStream::WebSocket(s) => std::pin::Pin::new(s).poll_shutdown(cx),
             TransportStream::Grpc(s) => std::pin::Pin::new(s).poll_shutdown(cx),
             TransportStream::Xhttp(s) => std::pin::Pin::new(s).poll_shutdown(cx),
+            TransportStream::XPorta(s) => std::pin::Pin::new(s).poll_shutdown(cx),
         }
     }
 }
@@ -422,7 +428,7 @@ where
 }
 
 /// Build a `rustls::ClientConfig` with optional cert verification and ALPN.
-fn build_client_tls_config(
+pub fn build_client_tls_config(
     skip_cert_verify: bool,
     alpn_protocols: &[String],
 ) -> rustls::ClientConfig {

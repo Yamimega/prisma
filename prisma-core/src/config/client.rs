@@ -44,6 +44,9 @@ pub struct ClientConfig {
     pub xhttp_stream_url: Option<String>,
     #[serde(default)]
     pub xhttp_extra_headers: Vec<(String, String)>,
+    // XPorta transport (next-gen CDN transport)
+    #[serde(default)]
+    pub xporta: Option<XPortaClientConfig>,
     // XMUX connection pool
     #[serde(default)]
     pub xmux: Option<XmuxConfig>,
@@ -229,4 +232,77 @@ fn default_cipher_suite() -> String {
 
 fn default_transport() -> String {
     "quic".into()
+}
+
+/// XPorta client configuration — next-generation CDN transport.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XPortaClientConfig {
+    /// Base URL of the CDN endpoint (e.g., "https://your-domain.com").
+    pub base_url: String,
+    /// Session initialization path.
+    #[serde(default = "default_xporta_session_path")]
+    pub session_path: String,
+    /// Upload data paths (randomly chosen per request).
+    #[serde(default = "default_xporta_data_paths")]
+    pub data_paths: Vec<String>,
+    /// Long-poll download paths (randomly chosen per request).
+    #[serde(default = "default_xporta_poll_paths")]
+    pub poll_paths: Vec<String>,
+    /// Payload encoding: "json" (default, max stealth), "binary" (max throughput), "auto".
+    #[serde(default = "default_xporta_encoding")]
+    pub encoding: String,
+    /// Number of concurrent pending poll requests.
+    #[serde(default = "default_xporta_poll_concurrency")]
+    pub poll_concurrency: u8,
+    /// Max concurrent upload requests.
+    #[serde(default = "default_xporta_upload_concurrency")]
+    pub upload_concurrency: u8,
+    /// Maximum payload size per request in bytes.
+    #[serde(default = "default_xporta_max_payload_size")]
+    pub max_payload_size: u32,
+    /// Poll timeout in seconds (must be < 100 for Cloudflare).
+    #[serde(default = "default_xporta_poll_timeout")]
+    pub poll_timeout_secs: u16,
+    /// Extra HTTP headers for all XPorta requests.
+    #[serde(default)]
+    pub extra_headers: Vec<(String, String)>,
+    /// Session cookie name (must match server config).
+    #[serde(default = "default_xporta_cookie_name")]
+    pub cookie_name: String,
+}
+
+fn default_xporta_session_path() -> String {
+    "/api/auth".into()
+}
+fn default_xporta_data_paths() -> Vec<String> {
+    vec![
+        "/api/v1/data".into(),
+        "/api/v1/sync".into(),
+        "/api/v1/update".into(),
+    ]
+}
+fn default_xporta_poll_paths() -> Vec<String> {
+    vec![
+        "/api/v1/notifications".into(),
+        "/api/v1/feed".into(),
+        "/api/v1/events".into(),
+    ]
+}
+fn default_xporta_encoding() -> String {
+    "json".into()
+}
+fn default_xporta_poll_concurrency() -> u8 {
+    3
+}
+fn default_xporta_upload_concurrency() -> u8 {
+    4
+}
+fn default_xporta_max_payload_size() -> u32 {
+    65536
+}
+fn default_xporta_poll_timeout() -> u16 {
+    55
+}
+fn default_xporta_cookie_name() -> String {
+    "_sess".into()
 }

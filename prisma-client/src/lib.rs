@@ -13,6 +13,7 @@ pub mod tunnel;
 pub mod udp_relay;
 pub mod ws_stream;
 pub mod xhttp_stream;
+pub mod xporta_stream;
 
 use std::sync::Arc;
 
@@ -63,6 +64,7 @@ pub async fn run(config_path: &str) -> Result<()> {
     let use_ws = config.transport == "ws";
     let use_grpc = config.transport == "grpc";
     let use_xhttp = config.transport == "xhttp";
+    let use_xporta = config.transport == "xporta";
 
     if use_ws {
         info!(ws_url = ?config.ws_url, "WebSocket transport enabled");
@@ -72,6 +74,9 @@ pub async fn run(config_path: &str) -> Result<()> {
     }
     if use_xhttp {
         info!(xhttp_mode = ?config.xhttp_mode, "XHTTP transport enabled");
+    }
+    if use_xporta {
+        info!("XPorta transport enabled");
     }
 
     let congestion_mode = CongestionMode::from_config(
@@ -104,6 +109,8 @@ pub async fn run(config_path: &str) -> Result<()> {
         xhttp_upload_url: config.xhttp_upload_url.clone(),
         xhttp_download_url: config.xhttp_download_url.clone(),
         xhttp_extra_headers: config.xhttp_extra_headers.clone(),
+        use_xporta,
+        xporta_config: config.xporta.clone(),
         user_agent: config.user_agent.clone(),
         referer: config.referer.clone(),
         congestion_mode,

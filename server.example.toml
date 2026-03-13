@@ -85,6 +85,17 @@ max = 256    # maximum padding bytes per frame
 # xhttp_mode = "stream-one"                      # "packet-up" | "stream-up" | "stream-one"
 # xhttp_nosse = false                            # disable SSE wrapping for download
 #
+# XPorta transport — next-gen CDN transport (REST API simulation)
+# [cdn.xporta]
+# enabled = true
+# session_path = "/api/auth"
+# data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+# poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+# session_timeout_secs = 300
+# max_sessions_per_client = 8
+# cookie_name = "_sess"
+# encoding = "json"                                  # "json" | "binary"
+#
 # Header obfuscation
 # response_server_header = "nginx"               # override Server header
 # padding_header = true                          # add X-Padding response header

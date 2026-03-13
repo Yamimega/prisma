@@ -93,6 +93,31 @@ Increase the timeout in `server.toml`:
 connection_timeout_secs = 600  # 10 minutes
 ```
 
+## XPorta session issues
+
+**Symptom:** XPorta transport fails to connect or drops frequently.
+
+**Causes:**
+- Server `[cdn.xporta]` not enabled or paths don't match client config
+- Session expired (default 300s idle timeout)
+- `data_paths` / `poll_paths` overlap between client and server configs
+
+**Solution:**
+
+1. Verify server has XPorta enabled:
+
+```toml
+[cdn.xporta]
+enabled = true
+session_path = "/api/auth"
+data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+```
+
+2. Ensure `session_path`, `data_paths`, and `poll_paths` match exactly between client and server
+3. Check that `encoding` is compatible (server `"json"` or `"binary"`, client can use `"auto"`)
+4. For Cloudflare deployments, verify `poll_timeout_secs` is under 100 (default 55)
+
 ## Debug logging
 
 Enable debug or trace logging to diagnose issues:

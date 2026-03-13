@@ -16,7 +16,7 @@ sidebar_position: 2
 | `identity.client_id` | string | — | 客户端 UUID（须与服务端配置匹配） |
 | `identity.auth_secret` | string | — | 64 个十六进制字符的共享密钥（须与服务端配置匹配） |
 | `cipher_suite` | string | `"chacha20-poly1305"` | `chacha20-poly1305` / `aes-256-gcm` |
-| `transport` | string | `"quic"` | `quic` / `tcp` / `ws` / `grpc` / `xhttp` |
+| `transport` | string | `"quic"` | `quic` / `tcp` / `ws` / `grpc` / `xhttp` / `xporta` |
 | `skip_cert_verify` | bool | `false` | 跳过 TLS 证书验证 |
 | `tls_on_tcp` | bool | `false` | 通过 TLS 包裹的 TCP 连接（须与服务端伪装设置匹配） |
 | `tls_server_name` | string? | — | TLS SNI 服务器名称覆盖（默认使用 server_addr 的主机名） |
@@ -35,6 +35,16 @@ sidebar_position: 2
 | `xhttp_download_url` | string? | — | XHTTP packet-up 下载 URL |
 | `xhttp_stream_url` | string? | — | XHTTP stream-one 流 URL |
 | `xhttp_extra_headers` | \[\[k,v\]\] | `[]` | 额外的 XHTTP 请求头 |
+| `xporta.base_url` | string? | — | XPorta 服务器基础 URL（如 `https://your-domain.com`） |
+| `xporta.session_path` | string | `"/api/auth"` | XPorta 会话初始化端点 |
+| `xporta.data_paths` | string[] | `["/api/v1/data", ...]` | XPorta 上传端点路径 |
+| `xporta.poll_paths` | string[] | `["/api/v1/notifications", ...]` | XPorta 长轮询下载路径 |
+| `xporta.encoding` | string | `"json"` | XPorta 编码方式：`"json"` / `"binary"` / `"auto"` |
+| `xporta.poll_concurrency` | u8 | `3` | 并发待处理轮询请求数（1-8） |
+| `xporta.upload_concurrency` | u8 | `4` | 并发上传请求数（1-8） |
+| `xporta.max_payload_size` | u32 | `65536` | 每请求最大负载字节数 |
+| `xporta.poll_timeout_secs` | u16 | `55` | 长轮询超时时间（10-90 秒） |
+| `xporta.extra_headers` | \[\[k,v\]\] | `[]` | 额外的 XPorta 请求头 |
 | `xmux.max_connections_min` | u16 | `1` | 连接池最小连接数 |
 | `xmux.max_connections_max` | u16 | `4` | 连接池最大连接数 |
 | `xmux.max_concurrency_min` | u16 | `8` | 每连接最小并发数 |
@@ -78,7 +88,7 @@ socks5_listen_addr = "127.0.0.1:1080"
 http_listen_addr = "127.0.0.1:8080"  # 可选，删除此行以禁用 HTTP 代理
 server_addr = "127.0.0.1:8443"
 cipher_suite = "chacha20-poly1305"   # 或 "aes-256-gcm"
-transport = "quic"                   # 或 "tcp" / "ws" / "grpc" / "xhttp"
+transport = "quic"                   # 或 "tcp" / "ws" / "grpc" / "xhttp" / "xporta"
 skip_cert_verify = true              # 开发环境中使用自签名证书时设为 true
 
 # 须与 prisma gen-key 生成的密钥匹配
@@ -111,11 +121,17 @@ format = "pretty"
 - `identity.client_id` 不能为空
 - `identity.auth_secret` 必须是有效的十六进制字符串
 - `cipher_suite` 必须是以下之一：`chacha20-poly1305`、`aes-256-gcm`
-- `transport` 必须是以下之一：`quic`、`tcp`、`ws`、`grpc`、`xhttp`
+- `transport` 必须是以下之一：`quic`、`tcp`、`ws`、`grpc`、`xhttp`、`xporta`
 - `xhttp_mode`（当 transport 为 `xhttp` 时）必须是以下之一：`packet-up`、`stream-up`、`stream-one`
 - `xhttp_mode = "stream-one"` 需要设置 `xhttp_stream_url`
 - `xhttp_mode = "packet-up"` 或 `"stream-up"` 需要设置 `xhttp_upload_url` 和 `xhttp_download_url`
 - XMUX 范围须满足 min ≤ max
+- `transport = "xporta"` 时需要设置 `xporta.base_url`
+- XPorta：所有路径必须以 `/` 开头
+- XPorta：`data_paths` 和 `poll_paths` 不能为空且不能重叠
+- XPorta：`encoding` 必须是以下之一：`json`、`binary`、`auto`
+- XPorta：`poll_concurrency` 须为 1-8，`upload_concurrency` 须为 1-8
+- XPorta：`poll_timeout_secs` 须为 10-90
 - `logging.level` 必须是以下之一：`trace`、`debug`、`info`、`warn`、`error`
 - `logging.format` 必须是以下之一：`pretty`、`json`
 
@@ -164,6 +180,23 @@ transport = "xhttp"
 xhttp_mode = "stream-one"
 xhttp_stream_url = "https://your-domain.com/api/v1/stream"
 ```
+
+### XPorta（最高隐蔽性 — CDN）
+
+新一代 CDN 传输，将代理数据分片为多个短命的 REST API 风格请求。流量与普通 SPA 发起的 API 调用无法区分。
+
+```toml
+transport = "xporta"
+
+[xporta]
+base_url = "https://your-domain.com"
+session_path = "/api/auth"
+data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+encoding = "json"
+```
+
+详见 [XPorta 传输](/docs/features/xporta-transport) 了解详细配置。
 
 ## 禁用 HTTP 代理
 

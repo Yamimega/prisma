@@ -58,6 +58,14 @@ sidebar_position: 1
 | `cdn.padding_header` | bool | `true` | 添加 `X-Padding` 响应头 |
 | `cdn.enable_sse_disguise` | bool | `false` | 以 SSE 格式包装下载流 |
 | `cdn.xhttp_extra_headers` | \[\[k,v\]\] | `[]` | 额外的伪装响应头 |
+| `cdn.xporta.enabled` | bool | `false` | 启用 XPorta 传输 |
+| `cdn.xporta.session_path` | string | `"/api/auth"` | XPorta 会话端点 |
+| `cdn.xporta.data_paths` | string[] | `["/api/v1/data", ...]` | XPorta 上传路径 |
+| `cdn.xporta.poll_paths` | string[] | `["/api/v1/notifications", ...]` | XPorta 长轮询下载路径 |
+| `cdn.xporta.session_timeout_secs` | u64 | `300` | 会话空闲超时时间（秒） |
+| `cdn.xporta.max_sessions_per_client` | u16 | `8` | 每客户端最大并发会话数 |
+| `cdn.xporta.cookie_name` | string | `"_sess"` | 会话 Cookie 名称 |
+| `cdn.xporta.encoding` | string | `"json"` | 编码方式：`"json"` / `"binary"` |
 | `dns_upstream` | string | `"8.8.8.8:53"` | CMD_DNS_QUERY 转发的上游 DNS 服务器 |
 | `congestion.mode` | string | `"bbr"` | 拥塞控制：`"brutal"` / `"bbr"` / `"adaptive"` |
 | `congestion.target_bandwidth` | string? | — | brutal/adaptive 模式的目标带宽（如 `"100mbps"`） |
@@ -134,6 +142,16 @@ alpn_protocols = ["h2", "http/1.1"]
 # [cdn.tls]
 # cert_path = "origin-cert.pem"
 # key_path = "origin-key.pem"
+#
+# XPorta 传输（新一代 REST API 模拟）
+# [cdn.xporta]
+# enabled = true
+# session_path = "/api/auth"
+# data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+# poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+# session_timeout_secs = 300
+# cookie_name = "_sess"
+# encoding = "json"
 ```
 
 ## 验证规则

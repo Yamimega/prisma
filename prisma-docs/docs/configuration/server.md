@@ -57,6 +57,14 @@ The server is configured via a TOML file (default: `server.toml`). Configuration
 | `cdn.padding_header` | bool | `true` | Add `X-Padding` response header |
 | `cdn.enable_sse_disguise` | bool | `false` | Wrap download in SSE format |
 | `cdn.xhttp_extra_headers` | \[\[k,v\]\] | `[]` | Extra response headers for disguise |
+| `cdn.xporta.enabled` | bool | `false` | Enable XPorta transport |
+| `cdn.xporta.session_path` | string | `"/api/auth"` | XPorta session endpoint |
+| `cdn.xporta.data_paths` | string[] | `["/api/v1/data", ...]` | XPorta upload paths |
+| `cdn.xporta.poll_paths` | string[] | `["/api/v1/notifications", ...]` | XPorta long-poll download paths |
+| `cdn.xporta.session_timeout_secs` | u64 | `300` | Session idle timeout (seconds) |
+| `cdn.xporta.max_sessions_per_client` | u16 | `8` | Max concurrent sessions per client |
+| `cdn.xporta.cookie_name` | string | `"_sess"` | Session cookie name |
+| `cdn.xporta.encoding` | string | `"json"` | Encoding: `"json"` / `"binary"` |
 | `camouflage.salamander_password` | string? | — | Salamander UDP obfuscation password (QUIC only) |
 | `dns_upstream` | string | `"8.8.8.8:53"` | Upstream DNS server for CMD_DNS_QUERY forwarding |
 | `congestion.mode` | string | `"bbr"` | Congestion control: `"brutal"` / `"bbr"` / `"adaptive"` |
@@ -134,6 +142,16 @@ alpn_protocols = ["h2", "http/1.1"]
 # [cdn.tls]
 # cert_path = "origin-cert.pem"
 # key_path = "origin-key.pem"
+
+# XPorta transport (next-gen REST API simulation)
+# [cdn.xporta]
+# enabled = true
+# session_path = "/api/auth"
+# data_paths = ["/api/v1/data", "/api/v1/sync", "/api/v1/update"]
+# poll_paths = ["/api/v1/notifications", "/api/v1/feed", "/api/v1/events"]
+# session_timeout_secs = 300
+# cookie_name = "_sess"
+# encoding = "json"
 ```
 
 ## Validation rules

@@ -150,6 +150,7 @@ pub enum Transport {
     WebSocket,
     Grpc,
     Xhttp,
+    XPorta,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
