@@ -28,6 +28,7 @@ hickory-proto = "0.24"
 # TUN device
 smoltcp = { version = "0.12", default-features = false, features = ["alloc", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 wintun = "0.5"
+libc = "0.2"
 
 # Bandwidth management
 governor = "0.8"
