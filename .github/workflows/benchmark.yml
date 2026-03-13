@@ -24,7 +24,13 @@ jobs:
           wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
           unzip Xray-linux-64.zip -d /usr/local/bin/
       - name: Run benchmark
-        run: bash bench_prisma_vs_xray.sh
+        run: |
+          export PRISMA_SOCKS="127.0.0.1:1080"
+          export XRAY_SOCKS="127.0.0.1:10800"
+          export IPERF_TARGET="127.0.0.1"
+          export RESULTS_DIR="./bench_results"
+          mkdir -p "$RESULTS_DIR"
+          bash .github/workflows/bench_prisma_vs_xray.sh
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
