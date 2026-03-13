@@ -15,6 +15,7 @@ prisma-client = { path = "../prisma-client" }
 tokio = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
+rustls = { workspace = true }
 tracing = { workspace = true }
 rcgen = { workspace = true }
 rand = { workspace = true }
