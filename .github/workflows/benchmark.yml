@@ -31,21 +31,11 @@ jobs:
       # ── 3. install Prisma binary ──────────────────────────────────────────
       - name: Install Prisma
         run: |
-          PRISMA_VERSION=$(curl -s https://api.github.com/repos/Yamimega/prisma/releases/latest \
-            | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
-          echo "Prisma version: $PRISMA_VERSION"
-
-          wget -q "https://github.com/Yamimega/prisma/releases/download/${PRISMA_VERSION}/prisma-x86_64-unknown-linux-gnu.tar.gz" \
-            -O /tmp/prisma.tar.gz \
-          || wget -q "https://github.com/Yamimega/prisma/releases/download/${PRISMA_VERSION}/prisma-linux-amd64.tar.gz" \
-            -O /tmp/prisma.tar.gz
-
-          tar -xzf /tmp/prisma.tar.gz -C /tmp/
-          sudo install -m 755 /tmp/prisma /usr/local/bin/prisma 2>/dev/null \
-            || sudo install -m 755 /tmp/prisma-server /usr/local/bin/prisma-server \
-            && sudo install -m 755 /tmp/prisma-client /usr/local/bin/prisma-client
-
-          prisma --version 2>/dev/null || prisma-server --version 2>/dev/null || echo "Prisma installed"
+          wget -q \
+            "https://github.com/Yamimega/prisma/releases/download/v0.2.0/prisma-linux-amd64" \
+            -O /tmp/prisma
+          sudo install -m 755 /tmp/prisma /usr/local/bin/prisma
+          prisma --version || echo "Prisma binary installed"
 
       # ── 4. install Xray-core binary ───────────────────────────────────────
       - name: Install Xray-core
