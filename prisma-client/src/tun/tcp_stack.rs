@@ -27,6 +27,7 @@ fn smol_now() -> SmolInstant {
 }
 
 /// Packet queue for communication between TUN device I/O and smoltcp.
+#[derive(Default)]
 pub struct PacketQueue {
     /// Packets received from TUN device, waiting to be ingested by smoltcp.
     rx_queue: VecDeque<Vec<u8>>,
@@ -36,10 +37,7 @@ pub struct PacketQueue {
 
 impl PacketQueue {
     pub fn new() -> Self {
-        Self {
-            rx_queue: VecDeque::new(),
-            tx_queue: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Push a packet received from the TUN device.
@@ -60,8 +58,14 @@ struct VirtualDevice<'a> {
 }
 
 impl<'a> Device for VirtualDevice<'a> {
-    type RxToken<'b> = VirtualRxToken where Self: 'b;
-    type TxToken<'b> = VirtualTxToken<'b> where Self: 'b;
+    type RxToken<'b>
+        = VirtualRxToken
+    where
+        Self: 'b;
+    type TxToken<'b>
+        = VirtualTxToken<'b>
+    where
+        Self: 'b;
 
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
@@ -70,19 +74,23 @@ impl<'a> Device for VirtualDevice<'a> {
         caps
     }
 
-    fn receive(&mut self, _timestamp: SmolInstant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
-        let packet = match self.queue.rx_queue.pop_front() {
-            Some(p) => p,
-            None => return None,
-        };
+    fn receive(
+        &mut self,
+        _timestamp: SmolInstant,
+    ) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
+        let packet = self.queue.rx_queue.pop_front()?;
         Some((
             VirtualRxToken { buffer: packet },
-            VirtualTxToken { queue: &mut self.queue.tx_queue },
+            VirtualTxToken {
+                queue: &mut self.queue.tx_queue,
+            },
         ))
     }
 
     fn transmit(&mut self, _timestamp: SmolInstant) -> Option<Self::TxToken<'_>> {
-        Some(VirtualTxToken { queue: &mut self.queue.tx_queue })
+        Some(VirtualTxToken {
+            queue: &mut self.queue.tx_queue,
+        })
     }
 }
 
@@ -148,13 +156,19 @@ impl TcpStack {
 
         // Add the local IP address
         let octets = local_ip.octets();
-        let ip_addr = IpCidr::new(IpAddress::Ipv4(Ipv4Address::new(octets[0], octets[1], octets[2], octets[3])), 0);
+        let ip_addr = IpCidr::new(
+            IpAddress::Ipv4(Ipv4Address::new(octets[0], octets[1], octets[2], octets[3])),
+            0,
+        );
         iface.update_ip_addrs(|addrs| {
             addrs.push(ip_addr).ok();
         });
 
         // Set default gateway (any IP works since we're routing everything through TUN)
-        iface.routes_mut().add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1)).ok();
+        iface
+            .routes_mut()
+            .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
+            .ok();
 
         // Preallocate socket storage for up to 64 concurrent connections
         let socket_storage: Vec<smoltcp::iface::SocketStorage<'static>> = (0..64)
@@ -204,14 +218,17 @@ impl TcpStack {
         let socket = self.sockets.get_mut::<tcp::Socket>(handle);
         socket.listen(dest.port()).ok();
 
-        self.connections.insert(handle, TcpConnection {
+        self.connections.insert(
             handle,
-            dest,
-            domain,
-            from_tunnel: Vec::new(),
-            to_tunnel: Vec::new(),
-            tunnel_connected: false,
-        });
+            TcpConnection {
+                handle,
+                dest,
+                domain,
+                from_tunnel: Vec::new(),
+                to_tunnel: Vec::new(),
+                tunnel_connected: false,
+            },
+        );
 
         debug!(dest = %dest, "TCP socket listening");
         handle
@@ -220,19 +237,13 @@ impl TcpStack {
     /// Read data from a TCP socket (data received from the application via TUN).
     pub fn read_from_socket(&mut self, handle: SocketHandle, buf: &mut [u8]) -> usize {
         let socket = self.sockets.get_mut::<tcp::Socket>(handle);
-        match socket.recv_slice(buf) {
-            Ok(n) => n,
-            Err(_) => 0,
-        }
+        socket.recv_slice(buf).unwrap_or_default()
     }
 
     /// Write data to a TCP socket (data to be sent to the application via TUN).
     pub fn write_to_socket(&mut self, handle: SocketHandle, data: &[u8]) -> usize {
         let socket = self.sockets.get_mut::<tcp::Socket>(handle);
-        match socket.send_slice(data) {
-            Ok(n) => n,
-            Err(_) => 0,
-        }
+        socket.send_slice(data).unwrap_or_default()
     }
 
     /// Check if a TCP socket is in an established state.
@@ -283,7 +294,8 @@ impl TcpStack {
 
     /// Remove closed connections.
     pub fn cleanup_closed(&mut self) -> Vec<SocketHandle> {
-        let closed: Vec<SocketHandle> = self.connections
+        let closed: Vec<SocketHandle> = self
+            .connections
             .keys()
             .copied()
             .filter(|h| self.is_closed(*h))
@@ -305,8 +317,14 @@ struct DummyDevice {
 }
 
 impl Device for DummyDevice {
-    type RxToken<'a> = VirtualRxToken where Self: 'a;
-    type TxToken<'a> = DummyTxToken where Self: 'a;
+    type RxToken<'a>
+        = VirtualRxToken
+    where
+        Self: 'a;
+    type TxToken<'a>
+        = DummyTxToken
+    where
+        Self: 'a;
 
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
@@ -315,7 +333,10 @@ impl Device for DummyDevice {
         caps
     }
 
-    fn receive(&mut self, _timestamp: SmolInstant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
+    fn receive(
+        &mut self,
+        _timestamp: SmolInstant,
+    ) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         None
     }
 

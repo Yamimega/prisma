@@ -36,10 +36,7 @@ impl WsStream {
         }
     }
 
-    async fn read_loop(
-        mut ws_stream: SplitStream<WebSocket>,
-        tx: mpsc::Sender<bytes::Bytes>,
-    ) {
+    async fn read_loop(mut ws_stream: SplitStream<WebSocket>, tx: mpsc::Sender<bytes::Bytes>) {
         while let Some(Ok(msg)) = ws_stream.next().await {
             match msg {
                 Message::Binary(data) => {
@@ -114,12 +111,10 @@ impl AsyncWrite for WsStream {
                 });
                 Poll::Pending
             }
-            Err(mpsc::error::TrySendError::Closed(_)) => {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::BrokenPipe,
-                    "WebSocket closed",
-                )))
-            }
+            Err(mpsc::error::TrySendError::Closed(_)) => Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "WebSocket closed",
+            ))),
         }
     }
 

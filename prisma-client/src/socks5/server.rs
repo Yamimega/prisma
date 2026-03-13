@@ -108,7 +108,7 @@ async fn handle_connect(
     };
 
     // Smart DNS: domains that should be tunneled are always proxied
-    let force_proxy = domain.map_or(false, |d| ctx.dns_resolver.should_tunnel_dns(d));
+    let force_proxy = domain.is_some_and(|d| ctx.dns_resolver.should_tunnel_dns(d));
 
     match ctx.router.route(domain, ip, destination.port) {
         RouteAction::Block => {
@@ -257,9 +257,7 @@ async fn parse_address(stream: &mut TcpStream, atyp: u8) -> Result<ProxyDestinat
                 port,
             })
         }
-        _ => {
-            Err(anyhow::anyhow!("Unsupported address type: {}", atyp))
-        }
+        _ => Err(anyhow::anyhow!("Unsupported address type: {}", atyp)),
     }
 }
 

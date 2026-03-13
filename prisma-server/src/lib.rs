@@ -126,9 +126,7 @@ pub async fn run(config_path: &str) -> Result<()> {
         let cdn_dns = dns_cache.clone();
         let cdn_ctx = ctx.clone();
         tokio::spawn(async move {
-            if let Err(e) =
-                listener::cdn::listen(&cdn_config, cdn_auth, cdn_dns, cdn_ctx).await
-            {
+            if let Err(e) = listener::cdn::listen(&cdn_config, cdn_auth, cdn_dns, cdn_ctx).await {
                 tracing::error!("CDN listener error: {}", e);
             }
         });
@@ -151,8 +149,7 @@ pub async fn run(config_path: &str) -> Result<()> {
     let quic_dns = dns_cache.clone();
     let quic_ctx = ctx.clone();
     let quic_handle = tokio::spawn(async move {
-        if let Err(e) = listener::quic::listen(&quic_config, quic_auth, quic_dns, quic_ctx).await
-        {
+        if let Err(e) = listener::quic::listen(&quic_config, quic_auth, quic_dns, quic_ctx).await {
             tracing::error!("QUIC listener error: {}", e);
         }
     });

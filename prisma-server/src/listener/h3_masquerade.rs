@@ -9,7 +9,7 @@
 //!   or active prober and served a cover website over HTTP/3, making the server
 //!   indistinguishable from a genuine HTTP/3 web server.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -63,10 +63,7 @@ pub async fn accept_loop(
             let remote = connection.remote_address();
             let alpn = connection
                 .handshake_data()
-                .and_then(|hd| {
-                    hd.downcast::<quinn::crypto::rustls::HandshakeData>()
-                        .ok()
-                })
+                .and_then(|hd| hd.downcast::<quinn::crypto::rustls::HandshakeData>().ok())
                 .and_then(|hd| hd.protocol)
                 .unwrap_or_default();
 
@@ -109,7 +106,13 @@ pub async fn accept_loop(
                                 .active_connections
                                 .fetch_add(1, Ordering::Relaxed);
                             if let Err(e) = handler::handle_quic_stream(
-                                send, recv, auth, dns, fwd, ctx.clone(), peer_str,
+                                send,
+                                recv,
+                                auth,
+                                dns,
+                                fwd,
+                                ctx.clone(),
+                                peer_str,
                             )
                             .await
                             {
@@ -141,7 +144,12 @@ struct CoverConfig {
     /// Local directory of static files to serve.
     static_dir: Option<PathBuf>,
     /// Shared HTTP client for reverse-proxying to cover site (reused across requests).
-    http_client: Arc<hyper_util::client::legacy::Client<hyper_util::client::legacy::connect::HttpConnector, http_body_util::Empty<Bytes>>>,
+    http_client: Arc<
+        hyper_util::client::legacy::Client<
+            hyper_util::client::legacy::connect::HttpConnector,
+            http_body_util::Empty<Bytes>,
+        >,
+    >,
 }
 
 impl CoverConfig {
@@ -150,8 +158,7 @@ impl CoverConfig {
         use hyper_util::rt::TokioExecutor;
 
         let http_client = Arc::new(
-            Client::builder(TokioExecutor::new())
-                .build_http::<http_body_util::Empty<Bytes>>(),
+            Client::builder(TokioExecutor::new()).build_http::<http_body_util::Empty<Bytes>>(),
         );
         Self {
             cover_site: config.camouflage.h3_cover_site.clone(),
@@ -162,10 +169,7 @@ impl CoverConfig {
 }
 
 /// Serve a single HTTP/3 connection using the h3 crate.
-async fn serve_h3_connection(
-    connection: quinn::Connection,
-    cover: &CoverConfig,
-) -> Result<()> {
+async fn serve_h3_connection(connection: quinn::Connection, cover: &CoverConfig) -> Result<()> {
     let h3_conn = h3_quinn::Connection::new(connection);
 
     let mut h3 = h3::server::Connection::new(h3_conn).await?;
@@ -236,7 +240,7 @@ async fn handle_h3_request(
 /// Returns `true` if the file was found and served, `false` otherwise.
 async fn serve_static_file(
     path: &str,
-    dir: &PathBuf,
+    dir: &Path,
     stream: &mut RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
 ) -> bool {
     // Normalize the path: strip leading slash, default to index.html.
@@ -287,7 +291,10 @@ async fn proxy_to_cover_site(
     req: &http::Request<()>,
     upstream: &str,
     stream: &mut RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
-    client: &hyper_util::client::legacy::Client<hyper_util::client::legacy::connect::HttpConnector, http_body_util::Empty<Bytes>>,
+    client: &hyper_util::client::legacy::Client<
+        hyper_util::client::legacy::connect::HttpConnector,
+        http_body_util::Empty<Bytes>,
+    >,
 ) -> Result<()> {
     use http_body_util::BodyExt;
 

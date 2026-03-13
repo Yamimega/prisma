@@ -46,6 +46,7 @@ impl<W> Clone for ForwardCtx<W> {
 }
 
 /// Entry point when the first command has already been parsed by the handler.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_forward_session_with_first_command<R, W>(
     tunnel_read: R,
     tunnel_write: W,

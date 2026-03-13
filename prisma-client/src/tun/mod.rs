@@ -107,7 +107,10 @@ mod tests {
 
         let info = super::packet::parse_ipv4(&pkt).unwrap();
         assert_eq!(info.src, "10.0.0.1".parse::<std::net::Ipv4Addr>().unwrap());
-        assert_eq!(info.dst, "192.168.1.1".parse::<std::net::Ipv4Addr>().unwrap());
+        assert_eq!(
+            info.dst,
+            "192.168.1.1".parse::<std::net::Ipv4Addr>().unwrap()
+        );
         assert_eq!(info.protocol, 6);
         assert_eq!(info.payload_offset, 20);
     }
@@ -125,7 +128,7 @@ mod tests {
         pkt[3] = 44;
         pkt[9] = 6; // TCP
         pkt[16..20].copy_from_slice(&[1, 2, 3, 4]); // dst IP
-        // TCP header at offset 20
+                                                    // TCP header at offset 20
         pkt[22] = 0x01; // dst port high byte
         pkt[23] = 0xBB; // dst port low byte = 443
 
@@ -142,7 +145,7 @@ mod tests {
         pkt[3] = 28;
         pkt[9] = 17; // UDP
         pkt[16..20].copy_from_slice(&[8, 8, 8, 8]); // dst IP
-        // UDP header at offset 20
+                                                    // UDP header at offset 20
         pkt[22] = 0x00;
         pkt[23] = 53; // dst port = 53
 

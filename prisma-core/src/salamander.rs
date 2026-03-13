@@ -94,10 +94,7 @@ fn derive_keystream(password: &[u8], len: usize) -> Vec<u8> {
 
 /// XOR two byte slices together.
 fn xor_bytes(data: &[u8], key: &[u8]) -> Vec<u8> {
-    data.iter()
-        .zip(key.iter())
-        .map(|(&d, &k)| d ^ k)
-        .collect()
+    data.iter().zip(key.iter()).map(|(&d, &k)| d ^ k).collect()
 }
 
 // ---------------------------------------------------------------------------

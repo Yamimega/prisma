@@ -184,14 +184,30 @@ impl Default for XmuxConfig {
     }
 }
 
-fn default_xmux_max_connections_min() -> u16 { 1 }
-fn default_xmux_max_connections_max() -> u16 { 4 }
-fn default_xmux_max_concurrency_min() -> u16 { 8 }
-fn default_xmux_max_concurrency_max() -> u16 { 16 }
-fn default_xmux_max_lifetime_min() -> u64 { 300 }
-fn default_xmux_max_lifetime_max() -> u64 { 600 }
-fn default_xmux_max_requests_min() -> u32 { 100 }
-fn default_xmux_max_requests_max() -> u32 { 200 }
+fn default_xmux_max_connections_min() -> u16 {
+    1
+}
+fn default_xmux_max_connections_max() -> u16 {
+    4
+}
+fn default_xmux_max_concurrency_min() -> u16 {
+    8
+}
+fn default_xmux_max_concurrency_max() -> u16 {
+    16
+}
+fn default_xmux_max_lifetime_min() -> u64 {
+    300
+}
+fn default_xmux_max_lifetime_max() -> u64 {
+    600
+}
+fn default_xmux_max_requests_min() -> u32 {
+    100
+}
+fn default_xmux_max_requests_max() -> u32 {
+    200
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientIdentity {

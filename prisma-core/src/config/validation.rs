@@ -504,9 +504,7 @@ fn validate_congestion_config(config: &CongestionConfig) -> Result<(), ConfigErr
             valid_modes
         )));
     }
-    if (config.mode == "brutal" || config.mode == "adaptive")
-        && config.target_bandwidth.is_none()
-    {
+    if (config.mode == "brutal" || config.mode == "adaptive") && config.target_bandwidth.is_none() {
         return Err(ConfigError::ValidationFailed(format!(
             "congestion.target_bandwidth must be set when mode is \"{}\"",
             config.mode
@@ -517,8 +515,8 @@ fn validate_congestion_config(config: &CongestionConfig) -> Result<(), ConfigErr
 
 #[cfg(test)]
 mod tests {
-    use crate::util::hex_decode;
     use super::{is_valid_bandwidth_format, is_valid_quota_format};
+    use crate::util::hex_decode;
 
     #[test]
     fn test_hex_decode_valid() {

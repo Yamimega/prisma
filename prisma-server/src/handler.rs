@@ -133,28 +133,30 @@ where
 
     if version == PROTOCOL_VERSION {
         // v3 handshake: 2-step ClientInit → ServerInit
-        let ticket_key = derive_ticket_key_from_state(&state).await;
-        let (server_init_bytes, server_state) =
-            match ServerHandshakeV3::process_client_init(
-                &client_hello_buf,
-                padding_range,
-                DEFAULT_SERVER_FEATURES,
-                &ticket_key,
-                &auth,
-            ) {
-                Ok(result) => result,
-                Err(e) => {
-                    warn!(error = %e, "v3 ClientInit processing failed");
-                    state.metrics.handshake_failures.fetch_add(1, Ordering::Relaxed);
-                    if let Some(ref fallback) = fallback_addr {
-                        let mut frame_bytes = Vec::with_capacity(2 + frame_len);
-                        frame_bytes.extend_from_slice(&peek[0..2]);
-                        frame_bytes.extend_from_slice(&client_hello_buf);
-                        let _ = camouflage::decoy_relay(stream, fallback, &frame_bytes).await;
-                    }
-                    return Ok(());
+        let ticket_key = derive_ticket_key_from_state(state).await;
+        let (server_init_bytes, server_state) = match ServerHandshakeV3::process_client_init(
+            &client_hello_buf,
+            padding_range,
+            DEFAULT_SERVER_FEATURES,
+            &ticket_key,
+            &auth,
+        ) {
+            Ok(result) => result,
+            Err(e) => {
+                warn!(error = %e, "v3 ClientInit processing failed");
+                state
+                    .metrics
+                    .handshake_failures
+                    .fetch_add(1, Ordering::Relaxed);
+                if let Some(ref fallback) = fallback_addr {
+                    let mut frame_bytes = Vec::with_capacity(2 + frame_len);
+                    frame_bytes.extend_from_slice(&peek[0..2]);
+                    frame_bytes.extend_from_slice(&client_hello_buf);
+                    let _ = camouflage::decoy_relay(stream, fallback, &frame_bytes).await;
                 }
-            };
+                return Ok(());
+            }
+        };
 
         util::write_framed(&mut stream, &server_init_bytes).await?;
 
@@ -180,7 +182,10 @@ where
     } else {
         // v1/v2 handshake: 4-step
         let (server_hello_bytes, server_state) =
-            match ServerHandshake::process_client_hello_with_padding(&client_hello_buf, padding_range) {
+            match ServerHandshake::process_client_hello_with_padding(
+                &client_hello_buf,
+                padding_range,
+            ) {
                 Ok(result) => result,
                 Err(e) => {
                     warn!(error = %e, "Invalid ClientHello in camouflaged connection");
@@ -244,16 +249,17 @@ pub async fn handle_quic_stream(
         let cfg = ctx.state.config.read().await;
         PaddingRange::new(cfg.padding.min, cfg.padding.max)
     };
-    let session_keys = match perform_handshake(&mut recv, &mut send, &auth, padding_range, &ctx.state).await {
-        Ok(keys) => keys,
-        Err(e) => {
-            ctx.state
-                .metrics
-                .handshake_failures
-                .fetch_add(1, Ordering::Relaxed);
-            return Err(e);
-        }
-    };
+    let session_keys =
+        match perform_handshake(&mut recv, &mut send, &auth, padding_range, &ctx.state).await {
+            Ok(keys) => keys,
+            Err(e) => {
+                ctx.state
+                    .metrics
+                    .handshake_failures
+                    .fetch_add(1, Ordering::Relaxed);
+                return Err(e);
+            }
+        };
 
     if session_keys.protocol_version == PROTOCOL_VERSION {
         info!(session_id = %session_keys.session_id, "Handshake complete (QUIC, v3)");
@@ -330,7 +336,8 @@ where
 
         let client_auth_buf = util::read_framed(reader).await?;
 
-        let (accept_bytes, session_keys) = server_state.process_client_auth(&client_auth_buf, auth)?;
+        let (accept_bytes, session_keys) =
+            server_state.process_client_auth(&client_auth_buf, auth)?;
 
         util::write_framed(writer, &accept_bytes).await?;
 
@@ -351,6 +358,7 @@ async fn derive_ticket_key_from_state(state: &ServerState) -> [u8; 32] {
 }
 
 /// Register a session in state, run it, then clean up on exit (v1/v2).
+#[allow(clippy::too_many_arguments)]
 async fn run_registered_session<R, W>(
     session_keys: SessionKeys,
     read: R,
@@ -428,6 +436,7 @@ where
 }
 
 /// Register a v3 session — first data frame must be ChallengeResponse.
+#[allow(clippy::too_many_arguments)]
 async fn run_registered_session_v3<R, W>(
     session_keys: SessionKeys,
     read: R,
@@ -506,6 +515,7 @@ where
 }
 
 /// v3 session handler: verify challenge response, then proceed as normal.
+#[allow(clippy::too_many_arguments)]
 async fn handle_session_v3<R, W>(
     session_keys: SessionKeys,
     mut tunnel_read: R,
@@ -561,6 +571,7 @@ where
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_session<R, W>(
     session_keys: SessionKeys,
     mut tunnel_read: R,
@@ -691,7 +702,11 @@ where
             tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &encrypted).await?;
             Ok(())
         }
-        Command::SpeedTest { direction, duration_secs, .. } => {
+        Command::SpeedTest {
+            direction,
+            duration_secs,
+            ..
+        } => {
             info!(direction, duration_secs, "Speed test requested");
             // Speed test: server sends random data for the specified duration
             let cipher = create_cipher(session_keys.cipher_suite, &session_keys.session_key);
@@ -713,10 +728,16 @@ where
                     match encrypt_frame(cipher.as_ref(), &nonce, &frame_bytes) {
                         Ok(encrypted) => {
                             let len = (encrypted.len() as u16).to_be_bytes();
-                            if tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &len).await.is_err() {
+                            if tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &len)
+                                .await
+                                .is_err()
+                            {
                                 break;
                             }
-                            if tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &encrypted).await.is_err() {
+                            if tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &encrypted)
+                                .await
+                                .is_err()
+                            {
                                 break;
                             }
                         }

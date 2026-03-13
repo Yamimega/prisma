@@ -30,17 +30,19 @@ pub async fn ws_tunnel_handler(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
 ) -> Response {
-    let peer_ip = extract_real_ip(&headers, &cdn.trusted_proxies)
-        .unwrap_or_else(|| addr.to_string());
+    let peer_ip =
+        extract_real_ip(&headers, &cdn.trusted_proxies).unwrap_or_else(|| addr.to_string());
 
     ws.on_upgrade(move |socket| async move {
         info!(peer = %peer_ip, "WebSocket tunnel connection");
 
-        cdn.ctx.state
+        cdn.ctx
+            .state
             .metrics
             .total_connections
             .fetch_add(1, Ordering::Relaxed);
-        cdn.ctx.state
+        cdn.ctx
+            .state
             .metrics
             .active_connections
             .fetch_add(1, Ordering::Relaxed);
@@ -63,7 +65,8 @@ pub async fn ws_tunnel_handler(
             warn!(peer = %peer_ip, error = %e, "WebSocket tunnel error");
         }
 
-        cdn.ctx.state
+        cdn.ctx
+            .state
             .metrics
             .active_connections
             .fetch_sub(1, Ordering::Relaxed);

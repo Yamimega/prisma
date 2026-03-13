@@ -38,14 +38,13 @@ impl WsStream {
     async fn read_loop<S>(
         mut ws_stream: SplitStream<WebSocketStream<S>>,
         tx: mpsc::Sender<bytes::Bytes>,
-    )
-    where
+    ) where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     {
         while let Some(Ok(msg)) = ws_stream.next().await {
             match msg {
                 Message::Binary(data) => {
-                    if tx.send(bytes::Bytes::from(data)).await.is_err() {
+                    if tx.send(data).await.is_err() {
                         break;
                     }
                 }
@@ -58,12 +57,15 @@ impl WsStream {
     async fn write_loop<S>(
         mut ws_sink: SplitSink<WebSocketStream<S>, Message>,
         mut rx: mpsc::Receiver<bytes::Bytes>,
-    )
-    where
+    ) where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     {
         while let Some(data) = rx.recv().await {
-            if ws_sink.send(Message::Binary(data.to_vec().into())).await.is_err() {
+            if ws_sink
+                .send(Message::Binary(data.to_vec().into()))
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -117,12 +119,10 @@ impl AsyncWrite for WsStream {
                 });
                 Poll::Pending
             }
-            Err(mpsc::error::TrySendError::Closed(_)) => {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::BrokenPipe,
-                    "WebSocket closed",
-                )))
-            }
+            Err(mpsc::error::TrySendError::Closed(_)) => Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "WebSocket closed",
+            ))),
         }
     }
 

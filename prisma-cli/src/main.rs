@@ -264,7 +264,9 @@ async fn run_speed_test(
         salamander_password: config.salamander_password.clone(),
         udp_fec: None,
         dns_config: prisma_core::dns::DnsConfig::default(),
-        dns_resolver: prisma_client::dns_resolver::DnsResolver::new(&prisma_core::dns::DnsConfig::default()),
+        dns_resolver: prisma_client::dns_resolver::DnsResolver::new(
+            &prisma_core::dns::DnsConfig::default(),
+        ),
         router: Arc::new(Router::new(vec![])),
     };
 
@@ -429,7 +431,10 @@ async fn run_speed_test(
 }
 
 fn print_version() {
-    println!("prisma {} (PrismaVeil Protocol v{})", VERSION, PROTOCOL_VERSION);
+    println!(
+        "prisma {} (PrismaVeil Protocol v{})",
+        VERSION, PROTOCOL_VERSION
+    );
     println!("Backward-compatible with v1 and v2 clients");
     println!();
     println!("v3 features:");

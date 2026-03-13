@@ -14,27 +14,54 @@ pub fn run_validate(config_path: &str, config_type: &str) -> Result<()> {
 fn validate_server(path: &str) -> Result<()> {
     println!("Validating server config: {}", path);
 
-    let config = prisma_core::config::load_server_config(path)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let config =
+        prisma_core::config::load_server_config(path).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     println!("  OK - Config is valid");
     println!();
     println!("  Listen (TCP):    {}", config.listen_addr);
     println!("  Listen (QUIC):   {}", config.quic_listen_addr);
-    println!("  TLS:             {}", if config.tls.is_some() { "configured" } else { "not configured" });
+    println!(
+        "  TLS:             {}",
+        if config.tls.is_some() {
+            "configured"
+        } else {
+            "not configured"
+        }
+    );
     println!("  Clients:         {}", config.authorized_clients.len());
-    println!("  Camouflage:      {}", if config.camouflage.enabled { "enabled" } else { "disabled" });
-    println!("  CDN:             {}", if config.cdn.enabled {
-        format!("enabled ({})", config.cdn.listen_addr)
-    } else {
-        "disabled".to_string()
-    });
-    println!("  Management API:  {}", if config.management_api.enabled {
-        format!("enabled ({})", config.management_api.listen_addr)
-    } else {
-        "disabled".to_string()
-    });
-    println!("  Port Forwarding: {}", if config.port_forwarding.enabled { "enabled" } else { "disabled" });
+    println!(
+        "  Camouflage:      {}",
+        if config.camouflage.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
+    println!(
+        "  CDN:             {}",
+        if config.cdn.enabled {
+            format!("enabled ({})", config.cdn.listen_addr)
+        } else {
+            "disabled".to_string()
+        }
+    );
+    println!(
+        "  Management API:  {}",
+        if config.management_api.enabled {
+            format!("enabled ({})", config.management_api.listen_addr)
+        } else {
+            "disabled".to_string()
+        }
+    );
+    println!(
+        "  Port Forwarding: {}",
+        if config.port_forwarding.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
 
     if config.cdn.enabled {
         println!();
@@ -56,8 +83,8 @@ fn validate_server(path: &str) -> Result<()> {
 fn validate_client(path: &str) -> Result<()> {
     println!("Validating client config: {}", path);
 
-    let config = prisma_core::config::load_client_config(path)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let config =
+        prisma_core::config::load_client_config(path).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     println!("  OK - Config is valid");
     println!();

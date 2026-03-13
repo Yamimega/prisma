@@ -88,9 +88,10 @@ impl AsyncWrite for XhttpStream {
                 permit.send(Bytes::copy_from_slice(buf));
                 Poll::Ready(Ok(buf.len()))
             }
-            Poll::Ready(Err(_)) => Poll::Ready(Err(
-                std::io::Error::new(std::io::ErrorKind::BrokenPipe, "channel closed"),
-            )),
+            Poll::Ready(Err(_)) => Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "channel closed",
+            ))),
             Poll::Pending => Poll::Pending,
         }
     }

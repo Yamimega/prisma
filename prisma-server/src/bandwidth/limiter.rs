@@ -14,15 +14,25 @@ pub struct BandwidthLimit {
     pub download_bps: u64, // 0 = unlimited
 }
 
+type Limiter = RateLimiter<
+    governor::state::NotKeyed,
+    governor::state::InMemoryState,
+    governor::clock::DefaultClock,
+>;
+
 /// Rate limiter store: maps client_id to their rate limiters.
 pub struct BandwidthLimiterStore {
     /// Upload limiters keyed by client UUID string.
-    upload: RwLock<HashMap<String, Arc<RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>>>,
+    upload: RwLock<HashMap<String, Arc<Limiter>>>,
     /// Download limiters keyed by client UUID string.
-    download: RwLock<HashMap<String, Arc<RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>>>,
+    download: RwLock<HashMap<String, Arc<Limiter>>>,
 }
 
-type Limiter = RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>;
+impl Default for BandwidthLimiterStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl BandwidthLimiterStore {
     pub fn new() -> Self {

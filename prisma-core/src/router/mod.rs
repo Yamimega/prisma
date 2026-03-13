@@ -75,12 +75,7 @@ impl Router {
 
     /// Match a connection by domain, IP, and port.
     /// Returns the action for the first matching rule, or `Proxy` if no match.
-    pub fn route(
-        &self,
-        domain: Option<&str>,
-        ip: Option<IpAddr>,
-        port: u16,
-    ) -> RouteAction {
+    pub fn route(&self, domain: Option<&str>, ip: Option<IpAddr>, port: u16) -> RouteAction {
         for (i, rule) in self.rules.iter().enumerate() {
             if self.matches(i, &rule.condition, domain, ip, port) {
                 return rule.action;
@@ -99,23 +94,18 @@ impl Router {
     ) -> bool {
         match condition {
             RuleCondition::Domain(d) => {
-                domain.map_or(false, |dom| {
-                    dom.trim_end_matches('.').eq_ignore_ascii_case(d)
-                })
+                domain.is_some_and(|dom| dom.trim_end_matches('.').eq_ignore_ascii_case(d))
             }
-            RuleCondition::DomainSuffix(suffix) => {
-                domain.map_or(false, |dom| {
-                    let dom = dom.trim_end_matches('.');
-                    let suffix = suffix.trim_start_matches('.');
-                    dom.eq_ignore_ascii_case(suffix)
-                        || dom.to_ascii_lowercase().ends_with(&format!(".{}", suffix.to_ascii_lowercase()))
-                })
-            }
-            RuleCondition::DomainKeyword(kw) => {
-                domain.map_or(false, |dom| {
-                    dom.to_ascii_lowercase().contains(&kw.to_ascii_lowercase())
-                })
-            }
+            RuleCondition::DomainSuffix(suffix) => domain.is_some_and(|dom| {
+                let dom = dom.trim_end_matches('.');
+                let suffix = suffix.trim_start_matches('.');
+                dom.eq_ignore_ascii_case(suffix)
+                    || dom
+                        .to_ascii_lowercase()
+                        .ends_with(&format!(".{}", suffix.to_ascii_lowercase()))
+            }),
+            RuleCondition::DomainKeyword(kw) => domain
+                .is_some_and(|dom| dom.to_ascii_lowercase().contains(&kw.to_ascii_lowercase())),
             RuleCondition::IpCidr(_) => {
                 if let Some(IpAddr::V4(v4)) = ip {
                     let (network, mask) = self.cidrs[idx];
@@ -125,9 +115,7 @@ impl Router {
                     false // TODO: IPv6 CIDR support
                 }
             }
-            RuleCondition::Port(p) => {
-                parse_port_match(p, port)
-            }
+            RuleCondition::Port(p) => parse_port_match(p, port),
             RuleCondition::All => true,
         }
     }
@@ -144,7 +132,11 @@ fn parse_cidr_v4(cidr: &str) -> Option<(u32, u32)> {
     if prefix > 32 {
         return None;
     }
-    let mask = if prefix == 0 { 0 } else { !0u32 << (32 - prefix) };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        !0u32 << (32 - prefix)
+    };
     let network = u32::from(ip) & mask;
     Some((network, mask))
 }
@@ -156,7 +148,7 @@ fn parse_port_match(spec: &str, port: u16) -> bool {
         let end: u16 = end.parse().unwrap_or(0);
         port >= start && port <= end
     } else {
-        spec.parse::<u16>().map_or(false, |p| p == port)
+        spec.parse::<u16>() == Ok(port)
     }
 }
 
@@ -179,9 +171,18 @@ mod tests {
         }];
         let router = Router::new(rules);
 
-        assert_eq!(router.route(Some("example.com"), None, 443), RouteAction::Direct);
-        assert_eq!(router.route(Some("example.com."), None, 443), RouteAction::Direct);
-        assert_eq!(router.route(Some("other.com"), None, 443), RouteAction::Proxy);
+        assert_eq!(
+            router.route(Some("example.com"), None, 443),
+            RouteAction::Direct
+        );
+        assert_eq!(
+            router.route(Some("example.com."), None, 443),
+            RouteAction::Direct
+        );
+        assert_eq!(
+            router.route(Some("other.com"), None, 443),
+            RouteAction::Proxy
+        );
     }
 
     #[test]
@@ -192,10 +193,22 @@ mod tests {
         }];
         let router = Router::new(rules);
 
-        assert_eq!(router.route(Some("google.com"), None, 80), RouteAction::Direct);
-        assert_eq!(router.route(Some("www.google.com"), None, 80), RouteAction::Direct);
-        assert_eq!(router.route(Some("mail.google.com"), None, 80), RouteAction::Direct);
-        assert_eq!(router.route(Some("notgoogle.com"), None, 80), RouteAction::Proxy);
+        assert_eq!(
+            router.route(Some("google.com"), None, 80),
+            RouteAction::Direct
+        );
+        assert_eq!(
+            router.route(Some("www.google.com"), None, 80),
+            RouteAction::Direct
+        );
+        assert_eq!(
+            router.route(Some("mail.google.com"), None, 80),
+            RouteAction::Direct
+        );
+        assert_eq!(
+            router.route(Some("notgoogle.com"), None, 80),
+            RouteAction::Proxy
+        );
     }
 
     #[test]
@@ -206,9 +219,18 @@ mod tests {
         }];
         let router = Router::new(rules);
 
-        assert_eq!(router.route(Some("ads.example.com"), None, 80), RouteAction::Block);
-        assert_eq!(router.route(Some("cdn-ads.tracker.com"), None, 80), RouteAction::Block);
-        assert_eq!(router.route(Some("example.com"), None, 80), RouteAction::Proxy);
+        assert_eq!(
+            router.route(Some("ads.example.com"), None, 80),
+            RouteAction::Block
+        );
+        assert_eq!(
+            router.route(Some("cdn-ads.tracker.com"), None, 80),
+            RouteAction::Block
+        );
+        assert_eq!(
+            router.route(Some("example.com"), None, 80),
+            RouteAction::Proxy
+        );
     }
 
     #[test]
@@ -259,8 +281,14 @@ mod tests {
         ];
         let router = Router::new(rules);
 
-        assert_eq!(router.route(Some("special.com"), None, 80), RouteAction::Direct);
-        assert_eq!(router.route(Some("anything.com"), None, 80), RouteAction::Block);
+        assert_eq!(
+            router.route(Some("special.com"), None, 80),
+            RouteAction::Direct
+        );
+        assert_eq!(
+            router.route(Some("anything.com"), None, 80),
+            RouteAction::Block
+        );
     }
 
     #[test]
@@ -278,15 +306,24 @@ mod tests {
         let router = Router::new(rules);
 
         // First rule matches exact domain
-        assert_eq!(router.route(Some("example.com"), None, 80), RouteAction::Direct);
+        assert_eq!(
+            router.route(Some("example.com"), None, 80),
+            RouteAction::Direct
+        );
         // Second rule matches subdomain
-        assert_eq!(router.route(Some("sub.example.com"), None, 80), RouteAction::Block);
+        assert_eq!(
+            router.route(Some("sub.example.com"), None, 80),
+            RouteAction::Block
+        );
     }
 
     #[test]
     fn test_default_proxy() {
         let router = Router::new(vec![]);
-        assert_eq!(router.route(Some("anything.com"), None, 443), RouteAction::Proxy);
+        assert_eq!(
+            router.route(Some("anything.com"), None, 443),
+            RouteAction::Proxy
+        );
     }
 
     #[test]

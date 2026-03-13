@@ -183,8 +183,8 @@ pub fn decode_client_init(data: &[u8]) -> Result<ClientInit, ProtocolError> {
     client_ephemeral_pub.copy_from_slice(&data[2..34]);
     let client_id = ClientId(uuid::Uuid::from_bytes(data[34..50].try_into().unwrap()));
     let timestamp = u64::from_be_bytes(data[50..58].try_into().unwrap());
-    let cipher_suite = CipherSuite::from_u8(data[58])
-        .ok_or(ProtocolError::InvalidCommand(data[58]))?;
+    let cipher_suite =
+        CipherSuite::from_u8(data[58]).ok_or(ProtocolError::InvalidCommand(data[58]))?;
     let mut auth_token = [0u8; 32];
     auth_token.copy_from_slice(&data[59..91]);
     let padding = data[91..].to_vec();
@@ -231,8 +231,9 @@ pub fn decode_server_init(data: &[u8]) -> Result<ServerInit, ProtocolError> {
             "ServerInit too short".to_string(),
         ));
     }
-    let status = AcceptStatus::from_u8(data[0])
-        .ok_or(ProtocolError::InvalidFrame("Invalid ServerInit status".to_string()))?;
+    let status = AcceptStatus::from_u8(data[0]).ok_or(ProtocolError::InvalidFrame(
+        "Invalid ServerInit status".to_string(),
+    ))?;
     let session_id = uuid::Uuid::from_bytes(data[1..17].try_into().unwrap());
     let mut server_ephemeral_pub = [0u8; 32];
     server_ephemeral_pub.copy_from_slice(&data[17..49]);
@@ -330,8 +331,8 @@ pub fn decode_session_ticket(data: &[u8]) -> Result<SessionTicket, ProtocolError
     let client_id = ClientId(uuid::Uuid::from_bytes(data[..16].try_into().unwrap()));
     let mut session_key = [0u8; 32];
     session_key.copy_from_slice(&data[16..48]);
-    let cipher_suite = CipherSuite::from_u8(data[48])
-        .ok_or(ProtocolError::InvalidCommand(data[48]))?;
+    let cipher_suite =
+        CipherSuite::from_u8(data[48]).ok_or(ProtocolError::InvalidCommand(data[48]))?;
     let issued_at = u64::from_be_bytes(data[49..57].try_into().unwrap());
     let padding_min = u16::from_be_bytes([data[57], data[58]]);
     let padding_max = u16::from_be_bytes([data[59], data[60]]);
@@ -619,7 +620,8 @@ fn decode_command_payload(cmd: u8, payload: &[u8]) -> Result<Command, ProtocolEr
                 return Err(ProtocolError::InvalidFrame("UdpAssociate too short".into()));
             }
             let bind_addr_type = payload[0];
-            let bind_port = u16::from_be_bytes([payload[payload.len() - 2], payload[payload.len() - 1]]);
+            let bind_port =
+                u16::from_be_bytes([payload[payload.len() - 2], payload[payload.len() - 1]]);
             let bind_addr = payload[1..payload.len() - 2].to_vec();
             Ok(Command::UdpAssociate {
                 bind_addr_type,
@@ -654,12 +656,16 @@ fn decode_command_payload(cmd: u8, payload: &[u8]) -> Result<Command, ProtocolEr
                 0x03 => {
                     // Domain: [len:1][domain:var]
                     if payload.len() < 7 {
-                        return Err(ProtocolError::InvalidFrame("UdpData domain too short".into()));
+                        return Err(ProtocolError::InvalidFrame(
+                            "UdpData domain too short".into(),
+                        ));
                     }
                     let domain_len = payload[6] as usize;
                     let end = 7 + domain_len;
                     if payload.len() < end + 2 {
-                        return Err(ProtocolError::InvalidFrame("UdpData domain truncated".into()));
+                        return Err(ProtocolError::InvalidFrame(
+                            "UdpData domain truncated".into(),
+                        ));
                     }
                     (end, payload[6..end].to_vec())
                 }
@@ -668,7 +674,9 @@ fn decode_command_payload(cmd: u8, payload: &[u8]) -> Result<Command, ProtocolEr
                 }
             };
             if payload.len() < addr_end + 2 {
-                return Err(ProtocolError::InvalidFrame("UdpData dest_port truncated".into()));
+                return Err(ProtocolError::InvalidFrame(
+                    "UdpData dest_port truncated".into(),
+                ));
             }
             let dest_port = u16::from_be_bytes([payload[addr_end], payload[addr_end + 1]]);
             let udp_payload = payload[addr_end + 2..].to_vec();
@@ -713,7 +721,9 @@ fn decode_command_payload(cmd: u8, payload: &[u8]) -> Result<Command, ProtocolEr
         }
         CMD_CHALLENGE_RESP => {
             if payload.len() < 32 {
-                return Err(ProtocolError::InvalidFrame("ChallengeResponse too short".into()));
+                return Err(ProtocolError::InvalidFrame(
+                    "ChallengeResponse too short".into(),
+                ));
             }
             let mut hash = [0u8; 32];
             hash.copy_from_slice(&payload[..32]);
@@ -1107,7 +1117,10 @@ mod tests {
     #[test]
     fn test_v3_command_dns_round_trip() {
         let frame = DataFrame {
-            command: Command::DnsQuery { query_id: 42, data: vec![1, 2, 3] },
+            command: Command::DnsQuery {
+                query_id: 42,
+                data: vec![1, 2, 3],
+            },
             flags: 0,
             stream_id: 0,
         };
@@ -1116,7 +1129,10 @@ mod tests {
         assert_eq!(decoded.command, frame.command);
 
         let frame = DataFrame {
-            command: Command::DnsResponse { query_id: 42, data: vec![4, 5, 6] },
+            command: Command::DnsResponse {
+                query_id: 42,
+                data: vec![4, 5, 6],
+            },
             flags: 0,
             stream_id: 0,
         };
@@ -1128,7 +1144,11 @@ mod tests {
     #[test]
     fn test_v3_command_speed_test_round_trip() {
         let frame = DataFrame {
-            command: Command::SpeedTest { direction: 0, duration_secs: 10, data: vec![0xFF; 100] },
+            command: Command::SpeedTest {
+                direction: 0,
+                duration_secs: 10,
+                data: vec![0xFF; 100],
+            },
             flags: 0,
             stream_id: 0,
         };

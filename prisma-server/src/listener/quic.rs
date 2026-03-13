@@ -156,8 +156,8 @@ fn create_server_endpoint(
     addr: std::net::SocketAddr,
     salamander_password: Option<&str>,
 ) -> Result<Endpoint> {
-    let runtime = quinn::default_runtime()
-        .ok_or_else(|| anyhow::anyhow!("no async runtime found"))?;
+    let runtime =
+        quinn::default_runtime().ok_or_else(|| anyhow::anyhow!("no async runtime found"))?;
     let socket = std::net::UdpSocket::bind(addr)?;
     let udp_socket = runtime.wrap_udp_socket(socket)?;
 
@@ -218,7 +218,7 @@ async fn listen_with_port_hopping(
 
         // Start endpoints for new ports
         for &port in &ports {
-            if !active_endpoints.contains_key(&port) {
+            if let std::collections::hash_map::Entry::Vacant(entry) = active_endpoints.entry(port) {
                 let addr_str = format!("{}:{}", host, port);
                 match addr_str.parse() {
                     Ok(addr) => match create_server_endpoint(
@@ -241,7 +241,7 @@ async fn listen_with_port_hopping(
                                 accept_loop(ep, auth, dns, fwd, ctx, sem).await;
                             });
 
-                            active_endpoints.insert(port, endpoint);
+                            entry.insert(endpoint);
                         }
                         Err(e) => {
                             warn!(port, error = %e, "Failed to bind port hopping endpoint");
@@ -268,7 +268,7 @@ async fn listen_with_port_hopping(
         }
 
         // Sleep until the next hop or check interval (whichever is shorter)
-        let sleep_secs = next_hop_secs.min(5).max(1);
+        let sleep_secs = next_hop_secs.clamp(1, 5);
         tokio::time::sleep(std::time::Duration::from_secs(sleep_secs)).await;
     }
 }
@@ -317,7 +317,13 @@ async fn accept_loop(
                                         .active_connections
                                         .fetch_add(1, Ordering::Relaxed);
                                     if let Err(e) = handler::handle_quic_stream(
-                                        send, recv, auth, dns, fwd, ctx.clone(), peer_str,
+                                        send,
+                                        recv,
+                                        auth,
+                                        dns,
+                                        fwd,
+                                        ctx.clone(),
+                                        peer_str,
                                     )
                                     .await
                                     {

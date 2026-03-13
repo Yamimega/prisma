@@ -93,11 +93,13 @@ pub async fn packet_upload_handler(
         let sessions = state.sessions.clone();
 
         tokio::spawn(async move {
-            cdn.ctx.state
+            cdn.ctx
+                .state
                 .metrics
                 .total_connections
                 .fetch_add(1, Ordering::Relaxed);
-            cdn.ctx.state
+            cdn.ctx
+                .state
                 .metrics
                 .active_connections
                 .fetch_add(1, Ordering::Relaxed);
@@ -120,7 +122,8 @@ pub async fn packet_upload_handler(
                 warn!(peer = %peer_ip, session = %sid, error = %e, "XHTTP packet-up error");
             }
 
-            cdn.ctx.state
+            cdn.ctx
+                .state
                 .metrics
                 .active_connections
                 .fetch_sub(1, Ordering::Relaxed);
@@ -223,11 +226,13 @@ pub async fn stream_handler(
 
     // Spawn the handler task
     tokio::spawn(async move {
-        cdn.ctx.state
+        cdn.ctx
+            .state
             .metrics
             .total_connections
             .fetch_add(1, Ordering::Relaxed);
-        cdn.ctx.state
+        cdn.ctx
+            .state
             .metrics
             .active_connections
             .fetch_add(1, Ordering::Relaxed);
@@ -250,7 +255,8 @@ pub async fn stream_handler(
             warn!(peer = %peer_ip, error = %e, "XHTTP stream error");
         }
 
-        cdn.ctx.state
+        cdn.ctx
+            .state
             .metrics
             .active_connections
             .fetch_sub(1, Ordering::Relaxed);
@@ -262,10 +268,8 @@ pub async fn stream_handler(
     });
 
     // Stream response body from download channel
-    let stream =
-        tokio_stream::wrappers::ReceiverStream::new(download_rx).map(|data| {
-            Ok::<_, std::convert::Infallible>(data)
-        });
+    let stream = tokio_stream::wrappers::ReceiverStream::new(download_rx)
+        .map(Ok::<_, std::convert::Infallible>);
 
     Response::builder()
         .status(StatusCode::OK)

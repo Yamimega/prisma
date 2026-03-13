@@ -31,12 +31,14 @@ pub async fn establish_tunnel(
     destination: &ProxyDestination,
 ) -> Result<TunnelConnection> {
     // Try v3 handshake first
-    let mut session_keys = establish_handshake_v3(&mut stream, client_id, auth_secret, cipher_suite).await
-        .or_else(|_| {
-            // v3 not available — this path shouldn't normally be hit since we control both sides.
-            // But for backward compat, we could fall back. For now, propagate the error.
-            Err::<SessionKeys, _>(anyhow::anyhow!("v3 handshake failed"))
-        })?;
+    let mut session_keys =
+        establish_handshake_v3(&mut stream, client_id, auth_secret, cipher_suite)
+            .await
+            .map_err(|_| {
+                // v3 not available — this path shouldn't normally be hit since we control both sides.
+                // But for backward compat, we could fall back. For now, propagate the error.
+                anyhow::anyhow!("v3 handshake failed")
+            })?;
 
     // Create cipher for data transfer
     let cipher = create_cipher(session_keys.cipher_suite, &session_keys.session_key);
@@ -46,7 +48,9 @@ pub async fn establish_tunnel(
         if let Some(challenge) = session_keys.challenge.take() {
             let response_hash: [u8; 32] = blake3::hash(&challenge).into();
             let challenge_frame = DataFrame {
-                command: Command::ChallengeResponse { hash: response_hash },
+                command: Command::ChallengeResponse {
+                    hash: response_hash,
+                },
                 flags: 0,
                 stream_id: 0,
             };
@@ -87,7 +91,8 @@ pub async fn establish_udp_tunnel(
     auth_secret: [u8; 32],
     cipher_suite: CipherSuite,
 ) -> Result<TunnelConnection> {
-    let mut session_keys = establish_handshake_v3(&mut stream, client_id, auth_secret, cipher_suite).await?;
+    let mut session_keys =
+        establish_handshake_v3(&mut stream, client_id, auth_secret, cipher_suite).await?;
 
     let cipher = create_cipher(session_keys.cipher_suite, &session_keys.session_key);
 
@@ -96,7 +101,9 @@ pub async fn establish_udp_tunnel(
         if let Some(challenge) = session_keys.challenge.take() {
             let response_hash: [u8; 32] = blake3::hash(&challenge).into();
             let challenge_frame = DataFrame {
-                command: Command::ChallengeResponse { hash: response_hash },
+                command: Command::ChallengeResponse {
+                    hash: response_hash,
+                },
                 flags: 0,
                 stream_id: 0,
             };
@@ -164,7 +171,8 @@ pub async fn establish_raw_tunnel(
     auth_secret: [u8; 32],
     cipher_suite: CipherSuite,
 ) -> Result<TunnelConnection> {
-    let mut session_keys = establish_handshake_v3(&mut stream, client_id, auth_secret, cipher_suite).await?;
+    let mut session_keys =
+        establish_handshake_v3(&mut stream, client_id, auth_secret, cipher_suite).await?;
 
     let cipher = create_cipher(session_keys.cipher_suite, &session_keys.session_key);
 
@@ -173,7 +181,9 @@ pub async fn establish_raw_tunnel(
         if let Some(challenge) = session_keys.challenge.take() {
             let response_hash: [u8; 32] = blake3::hash(&challenge).into();
             let challenge_frame = DataFrame {
-                command: Command::ChallengeResponse { hash: response_hash },
+                command: Command::ChallengeResponse {
+                    hash: response_hash,
+                },
                 flags: 0,
                 stream_id: 0,
             };

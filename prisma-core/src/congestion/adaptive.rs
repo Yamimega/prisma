@@ -385,8 +385,7 @@ impl AdaptiveController {
         }
 
         // -- Phase transitions with hysteresis --
-        if self.phase != Phase::Aggressive
-            && self.throttle_positive_streak >= THROTTLE_ENGAGE_COUNT
+        if self.phase != Phase::Aggressive && self.throttle_positive_streak >= THROTTLE_ENGAGE_COUNT
         {
             self.phase = Phase::Aggressive;
             tracing::info!(
@@ -643,7 +642,9 @@ mod tests {
         let mut ctrl = make_raw(Phase::ProbeBw);
 
         // High loss but also high RTT variance = real congestion, not throttling.
-        let rtts = [30_000, 80_000, 45_000, 120_000, 55_000, 95_000, 40_000, 110_000];
+        let rtts = [
+            30_000, 80_000, 45_000, 120_000, 55_000, 95_000, 40_000, 110_000,
+        ];
         for &rtt in &rtts {
             ctrl.push_loss(0.10);
             ctrl.push_rtt(rtt);

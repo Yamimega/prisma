@@ -92,9 +92,7 @@ impl BrutalController {
         };
 
         // Clamp to reasonable bounds
-        self.window = effective_window
-            .max(self.mtu * 4)
-            .min(256 * 1024 * 1024);
+        self.window = effective_window.max(self.mtu * 4).min(256 * 1024 * 1024);
     }
 }
 

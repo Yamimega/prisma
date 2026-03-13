@@ -191,7 +191,12 @@ fn parse_dns_a_records(data: &[u8]) -> Result<Vec<Ipv4Addr>> {
 
         if rtype == 1 && rdlength == 4 && pos + 4 <= data.len() {
             // A record
-            addrs.push(Ipv4Addr::new(data[pos], data[pos + 1], data[pos + 2], data[pos + 3]));
+            addrs.push(Ipv4Addr::new(
+                data[pos],
+                data[pos + 1],
+                data[pos + 2],
+                data[pos + 3],
+            ));
         }
 
         pos += rdlength;

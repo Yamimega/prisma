@@ -100,10 +100,7 @@ pub fn seconds_until_next_hop(config: &PortHoppingConfig, now: SystemTime) -> u6
 }
 
 fn compute_epoch(now: SystemTime, interval_secs: u64) -> u64 {
-    let secs = now
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+    let secs = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     if interval_secs == 0 {
         0
     } else {
@@ -112,10 +109,7 @@ fn compute_epoch(now: SystemTime, interval_secs: u64) -> u64 {
 }
 
 fn elapsed_in_current_epoch(now: SystemTime, interval_secs: u64) -> u64 {
-    let secs = now
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+    let secs = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     if interval_secs == 0 {
         0
     } else {
@@ -247,6 +241,9 @@ mod tests {
         let p1 = current_port(&config, b"secret-1", now);
         let p2 = current_port(&config, b"secret-2", now);
         // Very unlikely to collide with 50k range
-        assert_ne!(p1, p2, "Different secrets should (almost always) produce different ports");
+        assert_ne!(
+            p1, p2,
+            "Different secrets should (almost always) produce different ports"
+        );
     }
 }

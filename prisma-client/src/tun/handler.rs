@@ -18,20 +18,17 @@ use prisma_core::types::{ProxyAddress, ProxyDestination};
 
 use crate::proxy::ProxyContext;
 use crate::relay;
-use crate::tunnel;
 use crate::tun::device::TunDevice;
 use crate::tun::packet::{self, PROTO_TCP, PROTO_UDP};
 use crate::tun::tcp_stack::TcpStack;
+use crate::tunnel;
 
 /// Run the TUN handler loop.
 ///
 /// Creates a smoltcp TCP/IP stack and processes raw IP packets from the TUN
 /// device. TCP connections are bridged to PrismaVeil tunnels, UDP datagrams
 /// are relayed via CMD_UDP_DATA.
-pub async fn run_tun_handler(
-    device: Box<dyn TunDevice>,
-    ctx: ProxyContext,
-) -> Result<()> {
+pub async fn run_tun_handler(device: Box<dyn TunDevice>, ctx: ProxyContext) -> Result<()> {
     let device_name = device.name().to_string();
     let mtu = device.mtu();
     info!(device = %device_name, mtu = mtu, "TUN handler starting");
@@ -99,7 +96,7 @@ pub async fn run_tun_handler(
                 };
 
                 let mut tunnels = active_tunnels.lock().await;
-                if !tunnels.contains_key(&dest) {
+                if let std::collections::hash_map::Entry::Vacant(entry) = tunnels.entry(dest) {
                     // Resolve fake IP to domain if in Fake DNS mode
                     let domain = if let SocketAddr::V4(v4) = dest {
                         ctx.dns_resolver.lookup_fake_ip(*v4.ip()).await
@@ -116,7 +113,7 @@ pub async fn run_tun_handler(
 
                     // Accept the connection in smoltcp
                     s.accept_connection(dest, domain.clone());
-                    tunnels.insert(dest, TunnelState::Connecting);
+                    entry.insert(TunnelState::Connecting);
                 }
             }
             PROTO_UDP => {

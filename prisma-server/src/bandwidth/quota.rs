@@ -98,6 +98,12 @@ pub struct QuotaStore {
     clients: RwLock<HashMap<String, Arc<ClientUsage>>>,
 }
 
+impl Default for QuotaStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QuotaStore {
     pub fn new() -> Self {
         Self {

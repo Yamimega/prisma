@@ -12,15 +12,15 @@ use rand::Rng;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
-use prisma_core::cache::DnsCache;
-use prisma_core::config::server::ServerConfig;
-use prisma_core::proto::tunnel::prisma_tunnel_server::PrismaTunnelServer;
 use crate::auth::AuthStore;
 use crate::listener::grpc_tunnel::TunnelServiceImpl;
 use crate::listener::reverse_proxy::{self, ProxyState};
 use crate::listener::ws_tunnel::{self, CdnState};
 use crate::listener::xhttp;
 use crate::state::ServerContext;
+use prisma_core::cache::DnsCache;
+use prisma_core::config::server::ServerConfig;
+use prisma_core::proto::tunnel::prisma_tunnel_server::PrismaTunnelServer;
 
 pub async fn listen(
     config: &ServerConfig,
@@ -37,14 +37,13 @@ pub async fn listen(
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("CDN requires TLS configuration"))?;
 
-    let rustls_config =
-        RustlsConfig::from_pem_file(&tls_cfg.cert_path, &tls_cfg.key_path).await?;
+    let rustls_config = RustlsConfig::from_pem_file(&tls_cfg.cert_path, &tls_cfg.key_path).await?;
 
     let cdn_state = CdnState {
         config: config.clone(),
         auth: auth.clone(),
         dns: dns.clone(),
-        ctx: ctx,
+        ctx,
         trusted_proxies: cdn.trusted_proxies.clone(),
     };
 
@@ -68,10 +67,7 @@ fn build_cdn_router(
 
     // 1. WebSocket tunnel
     let mut app = Router::new()
-        .route(
-            &cdn.ws_tunnel_path,
-            get(ws_tunnel::ws_tunnel_handler),
-        )
+        .route(&cdn.ws_tunnel_path, get(ws_tunnel::ws_tunnel_handler))
         .with_state(cdn_state.clone());
 
     // 2. gRPC tunnel service — mounted at the gRPC path using route_service
@@ -101,10 +97,7 @@ fn build_cdn_router(
 
     // 4. Management API + dashboard on subpath (optional)
     if cdn.expose_management_api {
-        let mgmt = prisma_mgmt::router::build_router(
-            config.management_api.clone(),
-            state,
-        );
+        let mgmt = prisma_mgmt::router::build_router(config.management_api.clone(), state);
         app = app.nest(&cdn.management_api_path, mgmt);
     }
 
@@ -126,42 +119,45 @@ fn build_cdn_router(
     let server_header = cdn.response_server_header.clone();
     let add_padding_header = cdn.padding_header;
     let extra_headers = cdn.xhttp_extra_headers.clone();
-    app = app.layer(middleware::from_fn(
-        move |req: Request, next: Next| {
-            let server_header = server_header.clone();
-            let extra_headers = extra_headers.clone();
-            async move {
-                let mut response: Response = next.run(req).await;
-                let headers = response.headers_mut();
+    app = app.layer(middleware::from_fn(move |req: Request, next: Next| {
+        let server_header = server_header.clone();
+        let extra_headers = extra_headers.clone();
+        async move {
+            let mut response: Response = next.run(req).await;
+            let headers = response.headers_mut();
 
-                // Override Server header
-                if let Some(ref server_val) = server_header {
-                    headers.insert("server", server_val.parse().unwrap_or_else(|_| "nginx".parse().unwrap()));
-                }
-
-                // Add X-Padding response header with random-length value
-                if add_padding_header {
-                    let mut rng = rand::thread_rng();
-                    let padding_len = rng.gen_range(16..=128);
-                    let padding: String = (0..padding_len)
-                        .map(|_| rng.gen_range(b'a'..=b'z') as char)
-                        .collect();
-                    if let Ok(val) = padding.parse() {
-                        headers.insert("x-padding", val);
-                    }
-                }
-
-                // Add extra response headers
-                for (k, v) in &extra_headers {
-                    if let (Ok(name), Ok(val)) = (k.parse::<axum::http::HeaderName>(), v.parse()) {
-                        headers.insert(name, val);
-                    }
-                }
-
-                response
+            // Override Server header
+            if let Some(ref server_val) = server_header {
+                headers.insert(
+                    "server",
+                    server_val
+                        .parse()
+                        .unwrap_or_else(|_| "nginx".parse().unwrap()),
+                );
             }
-        },
-    ));
+
+            // Add X-Padding response header with random-length value
+            if add_padding_header {
+                let mut rng = rand::thread_rng();
+                let padding_len = rng.gen_range(16..=128);
+                let padding: String = (0..padding_len)
+                    .map(|_| rng.gen_range(b'a'..=b'z') as char)
+                    .collect();
+                if let Ok(val) = padding.parse() {
+                    headers.insert("x-padding", val);
+                }
+            }
+
+            // Add extra response headers
+            for (k, v) in &extra_headers {
+                if let (Ok(name), Ok(val)) = (k.parse::<axum::http::HeaderName>(), v.parse()) {
+                    headers.insert(name, val);
+                }
+            }
+
+            response
+        }
+    }));
 
     Ok(app)
 }

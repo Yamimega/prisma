@@ -187,8 +187,8 @@ mod tests {
         let _ip4 = pool.assign("d.com");
         assert_eq!(pool.len(), 3);
         // a.com was evicted — it should no longer be in the domain map
-        assert!(pool.domain_to_ip.get("a.com").is_none());
-        assert!(pool.domain_to_ip.get("d.com").is_some());
+        assert!(!pool.domain_to_ip.contains_key("a.com"));
+        assert!(pool.domain_to_ip.contains_key("d.com"));
     }
 
     #[test]

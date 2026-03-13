@@ -13,7 +13,7 @@ use std::sync::Arc;
 use quinn::congestion::ControllerFactory;
 
 /// Congestion control mode.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum CongestionMode {
     /// Hysteria2-style brutal CC: send at target rate regardless of loss.
     Brutal {
@@ -21,6 +21,7 @@ pub enum CongestionMode {
         target_bps: u64,
     },
     /// Google BBRv2 congestion control via quinn.
+    #[default]
     Bbr,
     /// Adaptive CC: starts with BBR, switches to aggressive when throttling detected.
     Adaptive {
@@ -29,11 +30,7 @@ pub enum CongestionMode {
     },
 }
 
-impl Default for CongestionMode {
-    fn default() -> Self {
-        CongestionMode::Bbr
-    }
-}
+// Default is derived via #[default] on Bbr variant
 
 impl CongestionMode {
     /// Parse from config strings.

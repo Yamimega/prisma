@@ -19,6 +19,7 @@ use crate::bandwidth::limiter::BandwidthLimiterStore;
 use crate::bandwidth::quota::QuotaStore;
 
 /// Bidirectional encrypted relay between tunnel and destination.
+#[allow(clippy::too_many_arguments)]
 pub async fn relay_encrypted<R, W>(
     mut tunnel_read: R,
     tunnel_write: W,
@@ -193,6 +194,7 @@ where
 }
 
 /// Bidirectional encrypted relay with per-client bandwidth limiting and quota enforcement.
+#[allow(clippy::too_many_arguments)]
 pub async fn relay_encrypted_with_limits<R, W>(
     tunnel_read: R,
     tunnel_write: W,
@@ -212,7 +214,10 @@ where
 {
     // Check quota before starting relay
     if quotas.is_quota_exceeded(&client_id).await {
-        return Err(anyhow::anyhow!("Traffic quota exceeded for client {}", client_id));
+        return Err(anyhow::anyhow!(
+            "Traffic quota exceeded for client {}",
+            client_id
+        ));
     }
 
     let (mut out_read, mut out_write) = outbound.into_split();
@@ -245,7 +250,11 @@ where
                 break;
             }
             frame_buf.resize(frame_len, 0);
-            if tunnel_read.read_exact(&mut frame_buf[..frame_len]).await.is_err() {
+            if tunnel_read
+                .read_exact(&mut frame_buf[..frame_len])
+                .await
+                .is_err()
+            {
                 break;
             }
 
@@ -264,7 +273,9 @@ where
             }
 
             bytes_up_t2d.fetch_add(frame_bytes, Ordering::Relaxed);
-            metrics_t2d.total_bytes_up.fetch_add(frame_bytes, Ordering::Relaxed);
+            metrics_t2d
+                .total_bytes_up
+                .fetch_add(frame_bytes, Ordering::Relaxed);
 
             match decrypt_frame(cipher_t2d.as_ref(), &frame_buf[..frame_len]) {
                 Ok((plaintext, nonce)) => {
@@ -290,7 +301,9 @@ where
                                 };
                                 let pong_bytes = encode_data_frame(&pong);
                                 let nonce = session_keys_ping.lock().await.next_server_nonce();
-                                if let Ok(encrypted) = encrypt_frame(cipher_t2d.as_ref(), &nonce, &pong_bytes) {
+                                if let Ok(encrypted) =
+                                    encrypt_frame(cipher_t2d.as_ref(), &nonce, &pong_bytes)
+                                {
                                     let mut tw = tunnel_write_ping.lock().await;
                                     let len = (encrypted.len() as u16).to_be_bytes();
                                     let _ = tw.write_all(&len).await;
@@ -348,7 +361,9 @@ where
                         Ok(encrypted) => {
                             let enc_len = encrypted.len() as u64 + 2;
                             bytes_down.fetch_add(enc_len, Ordering::Relaxed);
-                            metrics.total_bytes_down.fetch_add(enc_len, Ordering::Relaxed);
+                            metrics
+                                .total_bytes_down
+                                .fetch_add(enc_len, Ordering::Relaxed);
 
                             // Track quota
                             if let Some(usage) = quotas.get(&client_id).await {

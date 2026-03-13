@@ -155,8 +155,8 @@ pub async fn connect_quic(
     client_config.transport_config(Arc::new(transport_config));
 
     let bind_addr: std::net::SocketAddr = "0.0.0.0:0".parse()?;
-    let runtime = quinn::default_runtime()
-        .ok_or_else(|| anyhow::anyhow!("no async runtime found"))?;
+    let runtime =
+        quinn::default_runtime().ok_or_else(|| anyhow::anyhow!("no async runtime found"))?;
 
     let socket = std::net::UdpSocket::bind(bind_addr)?;
     let udp_socket = runtime.wrap_udp_socket(socket)?;
@@ -240,15 +240,15 @@ pub async fn connect_ws(
         let sni = rustls::pki_types::ServerName::try_from(host.to_string())?;
         let tls_stream = connector.connect(sni, tcp_stream).await?;
 
-        let (ws_stream, _response) =
-            tokio_tungstenite::client_async(ws_request, tls_stream).await
-                .map_err(|e| anyhow::anyhow!("WebSocket handshake failed: {}", e))?;
+        let (ws_stream, _response) = tokio_tungstenite::client_async(ws_request, tls_stream)
+            .await
+            .map_err(|e| anyhow::anyhow!("WebSocket handshake failed: {}", e))?;
 
         Ok(TransportStream::WebSocket(WsStream::new(ws_stream)))
     } else {
-        let (ws_stream, _response) =
-            tokio_tungstenite::client_async(ws_request, tcp_stream).await
-                .map_err(|e| anyhow::anyhow!("WebSocket handshake failed: {}", e))?;
+        let (ws_stream, _response) = tokio_tungstenite::client_async(ws_request, tcp_stream)
+            .await
+            .map_err(|e| anyhow::anyhow!("WebSocket handshake failed: {}", e))?;
 
         Ok(TransportStream::WebSocket(WsStream::new(ws_stream)))
     }
@@ -340,7 +340,10 @@ pub async fn connect_xhttp(
         spawn_xhttp_client(tcp_stream, req_builder, upload_rx, download_tx).await?;
     }
 
-    Ok(TransportStream::Xhttp(XhttpStream::new(download_rx, upload_tx)))
+    Ok(TransportStream::Xhttp(XhttpStream::new(
+        download_rx,
+        upload_tx,
+    )))
 }
 
 async fn spawn_xhttp_client<S>(
@@ -357,12 +360,10 @@ where
     use hyper_util::rt::TokioIo;
 
     let io = TokioIo::new(stream);
-    let (mut sender, conn) = hyper::client::conn::http2::handshake(
-        hyper_util::rt::TokioExecutor::new(),
-        io,
-    )
-    .await
-    .map_err(|e| anyhow::anyhow!("H2 handshake failed: {}", e))?;
+    let (mut sender, conn) =
+        hyper::client::conn::http2::handshake(hyper_util::rt::TokioExecutor::new(), io)
+            .await
+            .map_err(|e| anyhow::anyhow!("H2 handshake failed: {}", e))?;
 
     // Drive the connection in background
     tokio::spawn(async move {
@@ -372,7 +373,8 @@ where
     });
 
     // Create a streaming body from upload channel
-    let (body_tx, body_rx) = mpsc::channel::<Result<Frame<bytes::Bytes>, std::convert::Infallible>>(64);
+    let (body_tx, body_rx) =
+        mpsc::channel::<Result<Frame<bytes::Bytes>, std::convert::Infallible>>(64);
     let body = StreamBody::new(tokio_stream::wrappers::ReceiverStream::new(body_rx));
 
     let req = req_builder

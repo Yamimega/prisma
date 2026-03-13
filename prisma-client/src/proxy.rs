@@ -98,7 +98,11 @@ impl ProxyContext {
                     std::time::SystemTime::now(),
                 );
                 // Replace port in server address
-                let host = self.server_addr.split(':').next().unwrap_or(&self.server_addr);
+                let host = self
+                    .server_addr
+                    .split(':')
+                    .next()
+                    .unwrap_or(&self.server_addr);
                 format!("{}:{}", host, port)
             } else {
                 self.server_addr.clone()

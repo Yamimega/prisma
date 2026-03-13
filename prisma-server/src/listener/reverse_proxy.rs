@@ -22,16 +22,16 @@ pub struct ProxyState {
     pub upstream: String,
 }
 
-pub async fn reverse_proxy(
-    State(proxy): State<ProxyState>,
-    req: Request<Body>,
-) -> Response<Body> {
+pub async fn reverse_proxy(State(proxy): State<ProxyState>, req: Request<Body>) -> Response<Body> {
     let upstream = &proxy.upstream;
 
     let uri_string = format!(
         "{}{}",
         upstream.trim_end_matches('/'),
-        req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("/")
+        req.uri()
+            .path_and_query()
+            .map(|pq| pq.as_str())
+            .unwrap_or("/")
     );
 
     let uri = match uri_string.parse::<hyper::Uri>() {
@@ -67,8 +67,7 @@ pub async fn reverse_proxy(
 
     let forwarded_req = Request::from_parts(parts, body);
 
-    let client = Client::builder(TokioExecutor::new())
-        .build_http::<Body>();
+    let client = Client::builder(TokioExecutor::new()).build_http::<Body>();
 
     match client.request(forwarded_req).await {
         Ok(resp) => {

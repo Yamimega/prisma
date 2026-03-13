@@ -157,16 +157,14 @@ async fn tunnel_dns_query(ctx: &ProxyContext, query: &[u8]) -> Result<Vec<u8>> {
 
     // Establish a raw tunnel (handshake + challenge only, no CONNECT command)
     let stream = ctx.connect().await?;
-    let tunnel_conn = tunnel::establish_raw_tunnel(
-        stream,
-        ctx.client_id,
-        ctx.auth_secret,
-        ctx.cipher_suite,
-    )
-    .await?;
+    let tunnel_conn =
+        tunnel::establish_raw_tunnel(stream, ctx.client_id, ctx.auth_secret, ctx.cipher_suite)
+            .await?;
 
-    let cipher: Arc<dyn AeadCipher> =
-        Arc::from(create_cipher(tunnel_conn.session_keys.cipher_suite, &tunnel_conn.session_keys.session_key));
+    let cipher: Arc<dyn AeadCipher> = Arc::from(create_cipher(
+        tunnel_conn.session_keys.cipher_suite,
+        &tunnel_conn.session_keys.session_key,
+    ));
     let (mut tunnel_read, mut tunnel_write) = tokio::io::split(tunnel_conn.stream);
     let mut session_keys = tunnel_conn.session_keys;
 
@@ -190,7 +188,10 @@ async fn tunnel_dns_query(ctx: &ProxyContext, query: &[u8]) -> Result<Vec<u8>> {
         tunnel_read.read_exact(&mut len_buf).await?;
         let frame_len = u16::from_be_bytes(len_buf) as usize;
         if frame_len > MAX_FRAME_SIZE {
-            return Err(anyhow::anyhow!("DNS response frame too large: {}", frame_len));
+            return Err(anyhow::anyhow!(
+                "DNS response frame too large: {}",
+                frame_len
+            ));
         }
         let mut frame_buf = vec![0u8; frame_len];
         tunnel_read.read_exact(&mut frame_buf).await?;

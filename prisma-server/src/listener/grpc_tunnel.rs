@@ -38,11 +38,13 @@ impl PrismaTunnel for TunnelServiceImpl {
 
         info!(peer = %peer_ip, "gRPC tunnel connection");
 
-        self.ctx.state
+        self.ctx
+            .state
             .metrics
             .total_connections
             .fetch_add(1, Ordering::Relaxed);
-        self.ctx.state
+        self.ctx
+            .state
             .metrics
             .active_connections
             .fetch_add(1, Ordering::Relaxed);

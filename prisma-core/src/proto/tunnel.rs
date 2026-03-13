@@ -32,7 +32,8 @@ pub mod prisma_tunnel_server {
     impl<T: PrismaTunnel> tonic::server::StreamingService<TunnelData> for TunnelSvc<T> {
         type Response = TunnelData;
         type ResponseStream = T::TunnelStream;
-        type Future = Pin<Box<dyn Future<Output = Result<Response<Self::ResponseStream>, Status>> + Send>>;
+        type Future =
+            Pin<Box<dyn Future<Output = Result<Response<Self::ResponseStream>, Status>> + Send>>;
 
         fn call(&mut self, request: Request<Streaming<TunnelData>>) -> Self::Future {
             let inner = self.0.clone();
@@ -69,9 +70,7 @@ pub mod prisma_tunnel_server {
     {
         type Response = http::Response<tonic::body::Body>;
         type Error = std::convert::Infallible;
-        type Future = Pin<
-            Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>,
-        >;
+        type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
         fn poll_ready(
             &mut self,
@@ -140,13 +139,12 @@ pub mod prisma_tunnel_client {
             &mut self,
             request: impl tonic::IntoStreamingRequest<Message = TunnelData>,
         ) -> Result<Response<Streaming<TunnelData>>, Status> {
-            self.inner.ready().await.map_err(|e| {
-                Status::unknown(format!("Service not ready: {}", e.into()))
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| Status::unknown(format!("Service not ready: {}", e.into())))?;
             let codec = tonic::codec::ProstCodec::<TunnelData, TunnelData>::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/tunnel.PrismaTunnel/Tunnel",
-            );
+            let path = http::uri::PathAndQuery::from_static("/tunnel.PrismaTunnel/Tunnel");
             let mut req = request.into_streaming_request();
             req.extensions_mut()
                 .insert(tonic::GrpcMethod::new("tunnel.PrismaTunnel", "Tunnel"));

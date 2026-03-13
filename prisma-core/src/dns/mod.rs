@@ -10,7 +10,7 @@ pub mod fake_ip;
 use serde::{Deserialize, Serialize};
 
 /// DNS resolution mode.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DnsMode {
     /// Smart DNS: tunnel DNS for blocked domains, resolve others directly.
@@ -20,13 +20,8 @@ pub enum DnsMode {
     /// Tunnel all DNS through the proxy connection.
     Tunnel,
     /// Direct DNS resolution (no tunneling). Default mode.
+    #[default]
     Direct,
-}
-
-impl Default for DnsMode {
-    fn default() -> Self {
-        Self::Direct
-    }
 }
 
 /// DNS configuration.

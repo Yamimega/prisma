@@ -35,17 +35,14 @@ impl GrpcStream {
         }
     }
 
-    async fn read_loop(
-        mut inbound: Streaming<TunnelData>,
-        tx: mpsc::Sender<bytes::Bytes>,
-    ) {
+    async fn read_loop(mut inbound: Streaming<TunnelData>, tx: mpsc::Sender<bytes::Bytes>) {
         loop {
             match inbound.message().await {
                 Ok(Some(msg)) => {
-                    if !msg.payload.is_empty() {
-                        if tx.send(bytes::Bytes::from(msg.payload)).await.is_err() {
-                            break;
-                        }
+                    if !msg.payload.is_empty()
+                        && tx.send(bytes::Bytes::from(msg.payload)).await.is_err()
+                    {
+                        break;
                     }
                 }
                 Ok(None) => break,
@@ -115,12 +112,10 @@ impl AsyncWrite for GrpcStream {
                 });
                 Poll::Pending
             }
-            Err(mpsc::error::TrySendError::Closed(_)) => {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::BrokenPipe,
-                    "gRPC stream closed",
-                )))
-            }
+            Err(mpsc::error::TrySendError::Closed(_)) => Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "gRPC stream closed",
+            ))),
         }
     }
 

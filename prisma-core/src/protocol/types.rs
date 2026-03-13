@@ -79,13 +79,13 @@ pub struct ServerAccept {
 /// Combines ClientHello + ClientAuth into a single message.
 #[derive(Debug, Clone)]
 pub struct ClientInit {
-    pub version: u8,               // 0x03
-    pub flags: u8,                 // bit0: has_0rtt_data, bit1: resumption
+    pub version: u8, // 0x03
+    pub flags: u8,   // bit0: has_0rtt_data, bit1: resumption
     pub client_ephemeral_pub: [u8; 32],
-    pub client_id: ClientId,       // UUID (16 bytes)
-    pub timestamp: u64,            // Unix timestamp (seconds)
+    pub client_id: ClientId, // UUID (16 bytes)
+    pub timestamp: u64,      // Unix timestamp (seconds)
     pub cipher_suite: CipherSuite,
-    pub auth_token: [u8; 32],      // HMAC-SHA256(auth_secret, client_id || timestamp)
+    pub auth_token: [u8; 32], // HMAC-SHA256(auth_secret, client_id || timestamp)
     pub padding: Vec<u8>,
 }
 
@@ -96,19 +96,19 @@ pub struct ServerInit {
     pub status: AcceptStatus,
     pub session_id: Uuid,
     pub server_ephemeral_pub: [u8; 32],
-    pub challenge: [u8; 32],       // Random challenge
+    pub challenge: [u8; 32], // Random challenge
     pub padding_min: u16,
     pub padding_max: u16,
-    pub server_features: u32,      // Bitmask of supported features
-    pub session_ticket: Vec<u8>,   // Opaque ticket for 0-RTT resumption
+    pub server_features: u32,    // Bitmask of supported features
+    pub session_ticket: Vec<u8>, // Opaque ticket for 0-RTT resumption
     pub padding: Vec<u8>,
 }
 
 /// v3 0-RTT Resumption: Client → Server
 #[derive(Debug, Clone)]
 pub struct ClientResume {
-    pub version: u8,               // 0x03
-    pub flags: u8,                 // bit1=1 (resumption)
+    pub version: u8, // 0x03
+    pub flags: u8,   // bit1=1 (resumption)
     pub client_ephemeral_pub: [u8; 32],
     pub session_ticket: Vec<u8>,
     pub encrypted_0rtt_data: Vec<u8>,

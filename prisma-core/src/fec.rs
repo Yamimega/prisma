@@ -57,8 +57,7 @@ pub struct FecEncoder {
 
 impl FecEncoder {
     pub fn new(data_shards: usize, parity_shards: usize) -> Self {
-        let rs = ReedSolomon::new(data_shards, parity_shards)
-            .expect("invalid FEC shard counts");
+        let rs = ReedSolomon::new(data_shards, parity_shards).expect("invalid FEC shard counts");
         let total = data_shards + parity_shards;
         Self {
             rs,
@@ -89,10 +88,8 @@ impl FecEncoder {
 
         if self.count == self.data_shards {
             // Pad all shards to the same size
-            for shard in self.buffer.iter_mut().take(self.data_shards) {
-                if let Some(ref mut s) = shard {
-                    s.resize(self.shard_size, 0);
-                }
+            for s in self.buffer.iter_mut().take(self.data_shards).flatten() {
+                s.resize(self.shard_size, 0);
             }
             // Initialize parity shards
             for i in self.data_shards..self.data_shards + self.parity_shards {
@@ -187,8 +184,7 @@ struct GroupBuffer {
 
 impl FecDecoder {
     pub fn new(data_shards: usize, parity_shards: usize) -> Self {
-        let rs = ReedSolomon::new(data_shards, parity_shards)
-            .expect("invalid FEC shard counts");
+        let rs = ReedSolomon::new(data_shards, parity_shards).expect("invalid FEC shard counts");
         Self {
             rs,
             data_shards,
@@ -239,10 +235,8 @@ impl FecDecoder {
         if buf.received >= self.data_shards {
             // Pad all received shards to same size
             let shard_size = buf.shard_size;
-            for shard in buf.shards.iter_mut() {
-                if let Some(ref mut s) = shard {
-                    s.resize(shard_size, 0);
-                }
+            for s in buf.shards.iter_mut().flatten() {
+                s.resize(shard_size, 0);
             }
 
             // Attempt reconstruction
@@ -328,9 +322,13 @@ mod tests {
 
         // Simulate losing shard 1 (second data shard)
         let mut decoder = FecDecoder::new(3, 2);
-        assert!(decoder.add_shard(group.group_id, 0, &group.shards[0]).is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 0, &group.shards[0])
+            .is_none());
         // Skip shard 1
-        assert!(decoder.add_shard(group.group_id, 2, &group.shards[2]).is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 2, &group.shards[2])
+            .is_none());
         // Add parity shard 0 (index 3) — now we have 3 shards, enough to reconstruct
         let result = decoder.add_shard(group.group_id, 3, &group.shards[3]);
         let recovered = result.expect("should reconstruct with 3 of 5 shards");
@@ -357,8 +355,12 @@ mod tests {
 
         // Lose shards 0 and 2 — only have shard 1, parity 3, parity 4
         let mut decoder = FecDecoder::new(3, 2);
-        assert!(decoder.add_shard(group.group_id, 1, &group.shards[1]).is_none());
-        assert!(decoder.add_shard(group.group_id, 3, &group.shards[3]).is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 1, &group.shards[1])
+            .is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 3, &group.shards[3])
+            .is_none());
         let result = decoder.add_shard(group.group_id, 4, &group.shards[4]);
         let recovered = result.expect("should reconstruct with 3 of 5 shards");
 
@@ -370,11 +372,7 @@ mod tests {
     #[test]
     fn test_too_few_shards() {
         let mut encoder = FecEncoder::new(3, 2);
-        let data = vec![
-            b"aaaa".to_vec(),
-            b"bbbb".to_vec(),
-            b"cccc".to_vec(),
-        ];
+        let data = vec![b"aaaa".to_vec(), b"bbbb".to_vec(), b"cccc".to_vec()];
 
         let mut group = None;
         for d in &data {
@@ -384,8 +382,12 @@ mod tests {
 
         // Only 2 shards received (need 3)
         let mut decoder = FecDecoder::new(3, 2);
-        assert!(decoder.add_shard(group.group_id, 0, &group.shards[0]).is_none());
-        assert!(decoder.add_shard(group.group_id, 3, &group.shards[3]).is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 0, &group.shards[0])
+            .is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 3, &group.shards[3])
+            .is_none());
         // Still only 2 — can't reconstruct yet
     }
 
@@ -413,11 +415,7 @@ mod tests {
     #[test]
     fn test_variable_size_shards() {
         let mut encoder = FecEncoder::new(3, 1);
-        let data = vec![
-            b"short".to_vec(),
-            b"medium-length".to_vec(),
-            b"a".to_vec(),
-        ];
+        let data = vec![b"short".to_vec(), b"medium-length".to_vec(), b"a".to_vec()];
 
         let mut group = None;
         for d in &data {
@@ -431,8 +429,12 @@ mod tests {
 
         // Reconstruct after losing shard 0
         let mut decoder = FecDecoder::new(3, 1);
-        assert!(decoder.add_shard(group.group_id, 1, &group.shards[1]).is_none());
-        assert!(decoder.add_shard(group.group_id, 2, &group.shards[2]).is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 1, &group.shards[1])
+            .is_none());
+        assert!(decoder
+            .add_shard(group.group_id, 2, &group.shards[2])
+            .is_none());
         let result = decoder.add_shard(group.group_id, 3, &group.shards[3]);
         let recovered = result.expect("should reconstruct");
 

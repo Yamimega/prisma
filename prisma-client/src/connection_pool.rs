@@ -54,10 +54,7 @@ impl ConnectionPool {
     /// Get or create a connection for the given destination.
     /// Returns a TunnelConnection by establishing a new tunnel through
     /// a pooled transport connection.
-    pub async fn connect(
-        &self,
-        destination: &ProxyDestination,
-    ) -> Result<TunnelConnection> {
+    pub async fn connect(&self, destination: &ProxyDestination) -> Result<TunnelConnection> {
         // Clean expired connections
         {
             let mut conns = self.connections.lock().await;
@@ -82,7 +79,8 @@ impl ConnectionPool {
         let max_lifetime = std::time::Duration::from_secs(
             rng.gen_range(self.config.max_lifetime_secs_min..=self.config.max_lifetime_secs_max),
         );
-        let max_requests = rng.gen_range(self.config.max_requests_min..=self.config.max_requests_max);
+        let max_requests =
+            rng.gen_range(self.config.max_requests_min..=self.config.max_requests_max);
 
         debug!(
             max_lifetime_secs = max_lifetime.as_secs(),

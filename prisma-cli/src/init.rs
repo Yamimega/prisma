@@ -10,7 +10,10 @@ pub fn run_init(cdn: bool, server_only: bool, client_only: bool, force: bool) ->
 
     let mut mgmt_token_bytes = [0u8; 24];
     rand::Rng::fill(&mut rand::thread_rng(), &mut mgmt_token_bytes);
-    let mgmt_token: String = mgmt_token_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let mgmt_token: String = mgmt_token_bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect();
 
     if !client_only {
         write_server_config(&client_id.to_string(), &secret_hex, &mgmt_token, cdn, force)?;
@@ -32,9 +35,9 @@ pub fn run_init(cdn: bool, server_only: bool, client_only: bool, force: bool) ->
         println!("Generating self-signed TLS certificate...");
         let key_pair = rcgen::KeyPair::generate()?;
         let mut params = rcgen::CertificateParams::new(vec!["prisma-server".to_string()])?;
-        params
-            .subject_alt_names
-            .push(rcgen::SanType::DnsName("prisma-server".to_string().try_into()?));
+        params.subject_alt_names.push(rcgen::SanType::DnsName(
+            "prisma-server".to_string().try_into()?,
+        ));
         let cert = params.self_signed(&key_pair)?;
         std::fs::write("prisma-cert.pem", cert.pem())?;
         std::fs::write("prisma-key.pem", key_pair.serialize_pem())?;
@@ -54,13 +57,15 @@ fn write_server_config(
 ) -> Result<()> {
     let path = "server.toml";
     if Path::new(path).exists() && !force {
-        println!("Skipping {} (already exists, use --force to overwrite)", path);
+        println!(
+            "Skipping {} (already exists, use --force to overwrite)",
+            path
+        );
         return Ok(());
     }
 
     let cdn_section = if cdn {
-        format!(
-            r#"
+        r#"
 # CDN-compatible transport (WebSocket + gRPC through Cloudflare)
 [cdn]
 enabled = true
@@ -77,7 +82,7 @@ management_api_path = "/prisma-mgmt"
 cert_path = "origin-cert.pem"                   # Cloudflare Origin Certificate
 key_path = "origin-key.pem"
 "#
-        )
+        .to_string()
     } else {
         r#"
 # CDN-compatible transport (WebSocket + gRPC through Cloudflare)
@@ -150,7 +155,10 @@ auth_token = "{mgmt_token}"
 fn write_client_config(client_id: &str, secret_hex: &str, cdn: bool, force: bool) -> Result<()> {
     let path = "client.toml";
     if Path::new(path).exists() && !force {
-        println!("Skipping {} (already exists, use --force to overwrite)", path);
+        println!(
+            "Skipping {} (already exists, use --force to overwrite)",
+            path
+        );
         return Ok(());
     }
 

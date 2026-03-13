@@ -39,8 +39,7 @@ impl ClientHandshakeV3 {
             .unwrap()
             .as_secs();
 
-        let auth_token =
-            util::compute_auth_token(&self.auth_secret, &self.client_id, timestamp);
+        let auth_token = util::compute_auth_token(&self.auth_secret, &self.client_id, timestamp);
 
         let init = ClientInit {
             version: PROTOCOL_VERSION,
@@ -184,7 +183,11 @@ impl ServerHandshakeV3 {
         }
 
         // Verify auth token
-        if !verifier.verify(&client_init.client_id, &client_init.auth_token, client_init.timestamp) {
+        if !verifier.verify(
+            &client_init.client_id,
+            &client_init.auth_token,
+            client_init.timestamp,
+        ) {
             // Return auth failure via ServerInit
             return Err(PrismaError::Auth("Authentication failed".into()));
         }
@@ -767,7 +770,8 @@ mod tests {
         };
 
         // Client step 1: send ClientInit
-        let client_hs = ClientHandshakeV3::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
+        let client_hs =
+            ClientHandshakeV3::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
         let (client_state, client_init_bytes) = client_hs.start();
 
         // Server step 1: process ClientInit, produce ServerInit
@@ -802,7 +806,10 @@ mod tests {
         // Verify challenge response
         let challenge = client_session.challenge.unwrap();
         let response_hash: [u8; 32] = blake3::hash(&challenge).into();
-        assert!(server_state_verify_challenge(&server_session.challenge.unwrap(), &response_hash));
+        assert!(server_state_verify_challenge(
+            &server_session.challenge.unwrap(),
+            &response_hash
+        ));
     }
 
     fn server_state_verify_challenge(challenge: &[u8; 32], response_hash: &[u8; 32]) -> bool {
@@ -822,7 +829,8 @@ mod tests {
             auth_secret: wrong_secret,
         };
 
-        let client_hs = ClientHandshakeV3::new(client_id, client_secret, CipherSuite::ChaCha20Poly1305);
+        let client_hs =
+            ClientHandshakeV3::new(client_id, client_secret, CipherSuite::ChaCha20Poly1305);
         let (_, client_init_bytes) = client_hs.start();
 
         let result = ServerHandshakeV3::process_client_init(

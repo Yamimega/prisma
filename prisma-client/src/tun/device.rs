@@ -34,17 +34,17 @@ pub fn create_tun_device(
 ) -> Result<Box<dyn TunDevice>> {
     #[cfg(target_os = "windows")]
     {
-        return create_windows_tun(device_name, mtu);
+        create_windows_tun(device_name, mtu)
     }
 
     #[cfg(target_os = "linux")]
     {
-        return create_linux_tun(device_name, mtu);
+        create_linux_tun(device_name, mtu)
     }
 
     #[cfg(target_os = "macos")]
     {
-        return create_macos_tun(device_name, mtu);
+        create_macos_tun(device_name, mtu)
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
@@ -65,8 +65,12 @@ pub fn create_tun_device(
 fn create_windows_tun(device_name: &str, mtu: u16) -> Result<Box<dyn TunDevice>> {
     use std::sync::Arc;
 
-    let wintun = unsafe { wintun::load() }
-        .map_err(|e| anyhow::anyhow!("Failed to load Wintun driver: {}. Download wintun.dll from https://www.wintun.net/", e))?;
+    let wintun = unsafe { wintun::load() }.map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to load Wintun driver: {}. Download wintun.dll from https://www.wintun.net/",
+            e
+        )
+    })?;
 
     let adapter = match wintun::Adapter::open(&wintun, device_name) {
         Ok(a) => a,
@@ -145,10 +149,7 @@ fn create_linux_tun(device_name: &str, mtu: u16) -> Result<Box<dyn TunDevice>> {
         .write(true)
         .open("/dev/net/tun")
         .map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to open /dev/net/tun: {}. Ensure CAP_NET_ADMIN.",
-                e
-            )
+            anyhow::anyhow!("Failed to open /dev/net/tun: {}. Ensure CAP_NET_ADMIN.", e)
         })?;
 
     // Set up TUN device via ioctl
@@ -228,9 +229,7 @@ fn create_macos_tun(device_name: &str, mtu: u16) -> Result<Box<dyn TunDevice>> {
     // macOS uses the utun kernel control interface.
     // Parse utun index from device name (e.g., "utun5" → 5).
     let utun_index: u32 = if device_name.starts_with("utun") {
-        device_name[4..]
-            .parse()
-            .unwrap_or(0) // utun0 if no number specified
+        device_name[4..].parse().unwrap_or(0) // utun0 if no number specified
     } else {
         0
     };

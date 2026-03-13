@@ -10,9 +10,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, trace, warn};
 
 use prisma_core::crypto::aead::AeadCipher;
-use prisma_core::fec::{
-    decode_fec_header, encode_fec_header, FecConfig, FecDecoder, FecEncoder,
-};
+use prisma_core::fec::{decode_fec_header, encode_fec_header, FecConfig, FecDecoder, FecEncoder};
 use prisma_core::protocol::codec::*;
 use prisma_core::protocol::types::*;
 use prisma_core::types::MAX_FRAME_SIZE;
@@ -59,6 +57,7 @@ impl<W> Clone for UdpRelayCtx<W> {
 }
 
 /// Run a UDP relay session. The first frame (UdpAssociate) has already been parsed.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_udp_relay_session<R, W>(
     tunnel_read: R,
     tunnel_write: W,
@@ -75,10 +74,16 @@ where
     W: AsyncWrite + Unpin + Send + 'static,
 {
     let fec_encoder = fec_config.as_ref().map(|cfg| {
-        Arc::new(Mutex::new(FecEncoder::new(cfg.data_shards, cfg.parity_shards)))
+        Arc::new(Mutex::new(FecEncoder::new(
+            cfg.data_shards,
+            cfg.parity_shards,
+        )))
     });
     let fec_decoder = fec_config.as_ref().map(|cfg| {
-        Arc::new(Mutex::new(FecDecoder::new(cfg.data_shards, cfg.parity_shards)))
+        Arc::new(Mutex::new(FecDecoder::new(
+            cfg.data_shards,
+            cfg.parity_shards,
+        )))
     });
 
     let ctx = UdpRelayCtx {
@@ -104,10 +109,7 @@ where
 }
 
 /// Read encrypted frames from the tunnel and dispatch them.
-async fn read_loop<R, W>(
-    mut tunnel_read: R,
-    ctx: &UdpRelayCtx<W>,
-) -> Result<()>
+async fn read_loop<R, W>(mut tunnel_read: R, ctx: &UdpRelayCtx<W>) -> Result<()>
 where
     R: AsyncRead + Unpin + Send + 'static,
     W: AsyncWrite + Unpin + Send + 'static,
@@ -224,8 +226,7 @@ async fn dispatch_frame<W: AsyncWrite + Unpin + Send + 'static>(
                     let shard_data = &payload[4..];
 
                     let mut dec = decoder.lock().await;
-                    if let Some(recovered_shards) =
-                        dec.add_shard(group_id, shard_index, shard_data)
+                    if let Some(recovered_shards) = dec.add_shard(group_id, shard_index, shard_data)
                     {
                         trace!(
                             group_id,
@@ -242,8 +243,7 @@ async fn dispatch_frame<W: AsyncWrite + Unpin + Send + 'static>(
                     if let Some(ref cfg) = ctx.fec_config {
                         let mut seq = ctx.recv_seq.lock().await;
                         let shard_index = *seq;
-                        let group_id =
-                            (shard_index as u16) / (cfg.data_shards as u16);
+                        let group_id = (shard_index as u16) / (cfg.data_shards as u16);
                         let index_in_group = shard_index % (cfg.data_shards as u8);
 
                         let mut dec = decoder.lock().await;
@@ -325,10 +325,10 @@ async fn udp_recv_loop<W: AsyncWrite + Unpin + Send + 'static>(
         if let Some(ref encoder) = ctx.fec_encoder {
             let mut enc = encoder.lock().await;
             if let Some(group) = enc.add_shard(&payload) {
-                let total = (group.data_shards + group.parity_shards) as u8;
+                let total = group.data_shards + group.parity_shards;
                 // Send only parity shards (data shards already sent as regular frames)
-                for i in group.data_shards as usize
-                    ..(group.data_shards + group.parity_shards) as usize
+                for i in
+                    group.data_shards as usize..(group.data_shards + group.parity_shards) as usize
                 {
                     let header = encode_fec_header(group.group_id, i as u8, total);
                     let mut fec_payload = Vec::with_capacity(4 + group.shards[i].len());

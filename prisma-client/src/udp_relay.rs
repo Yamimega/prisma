@@ -9,9 +9,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, trace, warn};
 
 use prisma_core::crypto::aead::AeadCipher;
-use prisma_core::fec::{
-    decode_fec_header, encode_fec_header, FecConfig, FecDecoder, FecEncoder,
-};
+use prisma_core::fec::{decode_fec_header, encode_fec_header, FecConfig, FecDecoder, FecEncoder};
 use prisma_core::protocol::codec::*;
 use prisma_core::protocol::types::*;
 use prisma_core::types::{MAX_FRAME_SIZE, PROTOCOL_VERSION_V2};
@@ -38,12 +36,18 @@ pub async fn relay_udp(
 
     // FEC encoder for send direction
     let fec_encoder: Option<Arc<Mutex<FecEncoder>>> = fec_config.as_ref().map(|cfg| {
-        Arc::new(Mutex::new(FecEncoder::new(cfg.data_shards, cfg.parity_shards)))
+        Arc::new(Mutex::new(FecEncoder::new(
+            cfg.data_shards,
+            cfg.parity_shards,
+        )))
     });
 
     // FEC decoder for receive direction
     let fec_decoder: Option<Arc<Mutex<FecDecoder>>> = fec_config.as_ref().map(|cfg| {
-        Arc::new(Mutex::new(FecDecoder::new(cfg.data_shards, cfg.parity_shards)))
+        Arc::new(Mutex::new(FecDecoder::new(
+            cfg.data_shards,
+            cfg.parity_shards,
+        )))
     });
 
     // Sequence counter for receive-side FEC data shard tracking
@@ -97,8 +101,7 @@ pub async fn relay_udp(
                         continue;
                     }
                     let addr = buf[5..5 + domain_len].to_vec();
-                    let port =
-                        u16::from_be_bytes([buf[5 + domain_len], buf[5 + domain_len + 1]]);
+                    let port = u16::from_be_bytes([buf[5 + domain_len], buf[5 + domain_len + 1]]);
                     (0x03u8, addr, port, 5 + domain_len + 2)
                 }
                 0x04 => {
@@ -158,7 +161,7 @@ pub async fn relay_udp(
             if let (Some(ref encoder), Some(ref cfg)) = (&fec_encoder_up, &fec_config_up) {
                 let mut enc = encoder.lock().await;
                 if let Some(group) = enc.add_shard(&payload) {
-                    let total = (group.data_shards + group.parity_shards) as u8;
+                    let total = group.data_shards + group.parity_shards;
                     // Send only parity shards (data shards were already sent as regular frames)
                     for i in group.data_shards as usize
                         ..(group.data_shards + group.parity_shards) as usize
@@ -250,8 +253,7 @@ pub async fn relay_udp(
                                         warn!("FEC shard too short");
                                         continue;
                                     }
-                                    let header: [u8; 4] =
-                                        payload[..4].try_into().unwrap();
+                                    let header: [u8; 4] = payload[..4].try_into().unwrap();
                                     let (group_id, shard_index, _total) =
                                         decode_fec_header(&header);
                                     let shard_data = &payload[4..];
@@ -281,35 +283,24 @@ pub async fn relay_udp(
                                     let _fec_total =
                                         (fec_cfg.data_shards + fec_cfg.parity_shards) as u8;
                                     // Compute group_id from sequence
-                                    let group_id = (shard_index as u16)
-                                        / (fec_cfg.data_shards as u16);
-                                    let index_in_group =
-                                        shard_index % (fec_cfg.data_shards as u8);
+                                    let group_id =
+                                        (shard_index as u16) / (fec_cfg.data_shards as u16);
+                                    let index_in_group = shard_index % (fec_cfg.data_shards as u8);
 
                                     let mut dec = decoder.lock().await;
-                                    let _ = dec.add_shard(
-                                        group_id,
-                                        index_in_group,
-                                        &payload,
-                                    );
+                                    let _ = dec.add_shard(group_id, index_in_group, &payload);
                                     *seq = seq.wrapping_add(1);
                                 }
 
-                                let peer =
-                                    peer_map.lock().await.get(&assoc_id).cloned();
+                                let peer = peer_map.lock().await.get(&assoc_id).cloned();
                                 if let Some(peer) = peer {
                                     let header = build_socks5_udp_header(
                                         frag, addr_type, &dest_addr, dest_port,
                                     );
                                     let mut response = header;
                                     response.extend_from_slice(&payload);
-                                    if let Err(e) =
-                                        local_socket.send_to(&response, peer).await
-                                    {
-                                        warn!(
-                                            "UDP send to SOCKS5 client failed: {}",
-                                            e
-                                        );
+                                    if let Err(e) = local_socket.send_to(&response, peer).await {
+                                        warn!("UDP send to SOCKS5 client failed: {}", e);
                                     }
                                 }
                             }
