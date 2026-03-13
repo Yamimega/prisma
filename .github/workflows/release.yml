@@ -65,7 +65,7 @@ jobs:
             cross: true
           # macOS
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             artifact: prisma-darwin-amd64
           - target: aarch64-apple-darwin
             os: macos-latest
