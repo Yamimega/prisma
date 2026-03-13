@@ -1,47 +1,302 @@
-# .github/workflows/bench.yml
-name: Benchmark
+name: Benchmark — Prisma vs Xray-core
 on: workflow_dispatch
 
 jobs:
   bench:
-    runs-on: ubuntu-24.04        # free, 2 vCPU, 7 GB RAM
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Install tools
+      # ── 1. checkout ───────────────────────────────────────────────────────
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      # ── 2. install tools ──────────────────────────────────────────────────
+      - name: Install apt tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y iperf3 curl socat proxychains4 \
-            procps python3 netcat-openbsd
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            iperf3 curl wget socat netcat-openbsd \
+            python3 proxychains4 procps unzip
+
+      - name: Install hey
+        run: |
           wget -q https://hey-release.s3.us-east-2.amazonaws.com/hey_linux_amd64 \
-            -O /usr/local/bin/hey && chmod +x /usr/local/bin/hey
-      - name: Build Prisma
+            -O /tmp/hey && sudo install /tmp/hey /usr/local/bin/hey
+
+      - name: Install hyperfine
         run: |
-          git clone https://github.com/Yamimega/prisma.git
-          cd prisma && cargo build --release
-      - name: Build Xray
+          wget -q https://github.com/sharkdp/hyperfine/releases/download/v1.18.0/hyperfine_1.18.0_amd64.deb \
+            -O /tmp/hyperfine.deb && sudo dpkg -i /tmp/hyperfine.deb
+
+      # ── 3. install Prisma binary ──────────────────────────────────────────
+      - name: Install Prisma
         run: |
-          wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
-          unzip Xray-linux-64.zip -d /usr/local/bin/
+          PRISMA_VERSION=$(curl -s https://api.github.com/repos/Yamimega/prisma/releases/latest \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          echo "Prisma version: $PRISMA_VERSION"
+
+          wget -q "https://github.com/Yamimega/prisma/releases/download/${PRISMA_VERSION}/prisma-x86_64-unknown-linux-gnu.tar.gz" \
+            -O /tmp/prisma.tar.gz \
+          || wget -q "https://github.com/Yamimega/prisma/releases/download/${PRISMA_VERSION}/prisma-linux-amd64.tar.gz" \
+            -O /tmp/prisma.tar.gz
+
+          tar -xzf /tmp/prisma.tar.gz -C /tmp/
+          sudo install -m 755 /tmp/prisma /usr/local/bin/prisma 2>/dev/null \
+            || sudo install -m 755 /tmp/prisma-server /usr/local/bin/prisma-server \
+            && sudo install -m 755 /tmp/prisma-client /usr/local/bin/prisma-client
+
+          prisma --version 2>/dev/null || prisma-server --version 2>/dev/null || echo "Prisma installed"
+
+      # ── 4. install Xray-core binary ───────────────────────────────────────
+      - name: Install Xray-core
+        run: |
+          wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip \
+            -O /tmp/xray.zip
+          sudo unzip -o /tmp/xray.zip xray -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/xray
+          xray version
+
+      # ── 5. generate Prisma credentials ───────────────────────────────────
+      - name: Generate Prisma credentials
+        run: |
+          # gen-key
+          KEY_OUT=$(prisma gen-key 2>/dev/null || prisma-cli gen-key 2>/dev/null || echo "")
+          if [[ -z "$KEY_OUT" ]]; then
+            # fallback: generate UUID and random hex manually
+            CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
+            AUTH_SECRET=$(head -c 32 /dev/urandom | xxd -p | tr -d '\n')
+          else
+            CLIENT_ID=$(echo "$KEY_OUT"    | grep -i 'client id'   | awk '{print $NF}')
+            AUTH_SECRET=$(echo "$KEY_OUT"  | grep -i 'auth secret'  | awk '{print $NF}')
+          fi
+          echo "PRISMA_CLIENT_ID=$CLIENT_ID"     >> $GITHUB_ENV
+          echo "PRISMA_AUTH_SECRET=$AUTH_SECRET"  >> $GITHUB_ENV
+          echo "Client ID:   $CLIENT_ID"
+          echo "Auth Secret: $AUTH_SECRET"
+
+          # gen-cert (needed for QUIC; we use TCP for bench so self-sign is fine)
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout /tmp/prisma-key.pem \
+            -out    /tmp/prisma-cert.pem \
+            -days 1 -subj "/CN=bench" -quiet 2>/dev/null || true
+
+      # ── 6. write Prisma configs ───────────────────────────────────────────
+      - name: Write Prisma server + client configs
+        run: |
+          cat > /tmp/prisma-server.toml << EOF
+          listen_addr = "127.0.0.1:8443"
+          quic_listen_addr = "127.0.0.1:8444"
+
+          [tls]
+          cert_path = "/tmp/prisma-cert.pem"
+          key_path  = "/tmp/prisma-key.pem"
+
+          [[authorized_clients]]
+          id          = "$PRISMA_CLIENT_ID"
+          auth_secret = "$PRISMA_AUTH_SECRET"
+          name        = "bench"
+
+          [performance]
+          max_connections         = 4096
+          connection_timeout_secs = 300
+          EOF
+
+          cat > /tmp/prisma-client.toml << EOF
+          socks5_listen_addr = "127.0.0.1:1080"
+          http_listen_addr   = "127.0.0.1:8080"
+          server_addr        = "127.0.0.1:8443"
+          transport          = "tcp"
+          cipher_suite       = "chacha20-poly1305"
+          skip_cert_verify   = true
+
+          [identity]
+          client_id   = "$PRISMA_CLIENT_ID"
+          auth_secret = "$PRISMA_AUTH_SECRET"
+          EOF
+
+      # ── 7. generate Xray credentials ─────────────────────────────────────
+      - name: Generate Xray credentials
+        run: |
+          XRAY_UUID=$(xray uuid)
+          XRAY_KEYS=$(xray x25519)
+          XRAY_PRIVKEY=$(echo "$XRAY_KEYS" | grep 'Private' | awk '{print $NF}')
+          XRAY_PUBKEY=$(echo  "$XRAY_KEYS" | grep 'Public'  | awk '{print $NF}')
+          echo "XRAY_UUID=$XRAY_UUID"         >> $GITHUB_ENV
+          echo "XRAY_PRIVKEY=$XRAY_PRIVKEY"   >> $GITHUB_ENV
+          echo "XRAY_PUBKEY=$XRAY_PUBKEY"     >> $GITHUB_ENV
+          echo "UUID:    $XRAY_UUID"
+          echo "PubKey:  $XRAY_PUBKEY"
+
+      # ── 8. write Xray configs ─────────────────────────────────────────────
+      - name: Write Xray server + client configs
+        run: |
+          cat > /tmp/xray-server.json << EOF
+          {
+            "log": { "loglevel": "warning" },
+            "inbounds": [{
+              "listen": "127.0.0.1",
+              "port": 9443,
+              "protocol": "vless",
+              "settings": {
+                "clients": [{
+                  "id": "$XRAY_UUID",
+                  "flow": "xtls-rprx-vision"
+                }],
+                "decryption": "none"
+              },
+              "streamSettings": {
+                "network": "raw",
+                "security": "reality",
+                "realitySettings": {
+                  "show": false,
+                  "target": "example.com:443",
+                  "serverNames": ["example.com"],
+                  "privateKey": "$XRAY_PRIVKEY",
+                  "shortIds": ["abcdef01"]
+                }
+              }
+            }],
+            "outbounds": [{ "protocol": "freedom" }]
+          }
+          EOF
+
+          cat > /tmp/xray-client.json << EOF
+          {
+            "log": { "loglevel": "warning" },
+            "inbounds": [{
+              "listen": "127.0.0.1",
+              "port": 10800,
+              "protocol": "socks",
+              "settings": { "auth": "noauth", "udp": true }
+            }],
+            "outbounds": [{
+              "protocol": "vless",
+              "settings": {
+                "vnext": [{
+                  "address": "127.0.0.1",
+                  "port": 9443,
+                  "users": [{
+                    "id": "$XRAY_UUID",
+                    "flow": "xtls-rprx-vision",
+                    "encryption": "none"
+                  }]
+                }]
+              },
+              "streamSettings": {
+                "network": "raw",
+                "security": "reality",
+                "realitySettings": {
+                  "fingerprint": "chrome",
+                  "serverName": "example.com",
+                  "password": "$XRAY_PUBKEY",
+                  "shortId": "abcdef01"
+                }
+              }
+            }]
+          }
+          EOF
+
+      # ── 9. start all processes ────────────────────────────────────────────
+      - name: Start Prisma server
+        run: |
+          prisma server -c /tmp/prisma-server.toml >> /tmp/prisma-server.log 2>&1 &
+          echo $! > /tmp/prisma-server.pid
+          sleep 2
+
+      - name: Start Prisma client
+        run: |
+          prisma client -c /tmp/prisma-client.toml >> /tmp/prisma-client.log 2>&1 &
+          echo $! > /tmp/prisma-client.pid
+          sleep 2
+
+      - name: Start Xray server
+        run: |
+          xray run -c /tmp/xray-server.json >> /tmp/xray-server.log 2>&1 &
+          echo $! > /tmp/xray-server.pid
+          sleep 2
+
+      - name: Start Xray client
+        run: |
+          xray run -c /tmp/xray-client.json >> /tmp/xray-client.log 2>&1 &
+          echo $! > /tmp/xray-client.pid
+          sleep 2
+
+      - name: Start iperf3 server
+        run: |
+          iperf3 -s -p 5201 -D
+          sleep 1
+          nc -z 127.0.0.1 5201 && echo "iperf3 OK" || echo "iperf3 FAIL"
+
+      - name: Start HTTP target server
+        run: |
+          python3 -m http.server 5300 --directory /tmp >> /tmp/http.log 2>&1 &
+          sleep 1
+          nc -z 127.0.0.1 5300 && echo "HTTP server OK" || echo "HTTP server FAIL"
+
+      # ── 10. verify everything is up ───────────────────────────────────────
+      - name: Verify proxies
+        run: |
+          echo "=== Port check ==="
+          for PORT in 1080 8080 8443 9443 10800 5201 5300; do
+            nc -z 127.0.0.1 $PORT 2>/dev/null \
+              && echo "  :$PORT OPEN" \
+              || echo "  :$PORT CLOSED"
+          done
+
+          echo ""
+          echo "=== Tunnel smoke test ==="
+          curl -s --max-time 10 --socks5 127.0.0.1:1080 \
+            http://127.0.0.1:5300/ -o /dev/null \
+            && echo "  Prisma SOCKS5 OK" || echo "  Prisma SOCKS5 FAIL"
+
+          curl -s --max-time 10 --socks5 127.0.0.1:10800 \
+            http://127.0.0.1:5300/ -o /dev/null \
+            && echo "  Xray SOCKS5 OK" || echo "  Xray SOCKS5 FAIL"
+
+          echo ""
+          echo "=== Process logs (last 10 lines each) ==="
+          echo "-- prisma-server --"
+          tail -10 /tmp/prisma-server.log || true
+          echo "-- prisma-client --"
+          tail -10 /tmp/prisma-client.log || true
+          echo "-- xray-server --"
+          tail -10 /tmp/xray-server.log || true
+          echo "-- xray-client --"
+          tail -10 /tmp/xray-client.log || true
+
+      # ── 11. run benchmark ─────────────────────────────────────────────────
       - name: Run benchmark
         run: |
-          set -euo pipefail
           PRISMA_SOCKS="127.0.0.1:1080"
           XRAY_SOCKS="127.0.0.1:10800"
           IPERF_TARGET="127.0.0.1"
+          HTTP_TARGET="http://127.0.0.1:5300"
           RESULTS="./bench_results"
           RUNS=3
           IPERF_DUR=20
           mkdir -p "$RESULTS"
 
-          # ── baseline ────────────────────────────────────────────
+          ok_or_skip() { "$@" || { echo "[SKIP] $1 exited $?"; return 0; }; }
+
+          # ── baseline ─────────────────────────────────────────────
           echo "=== BASELINE ==="
-          iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR -J \
+          ok_or_skip iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR -J \
             > "$RESULTS/baseline_single.json"
-          iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR -P 4 -J \
+          ok_or_skip iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR -P 4 -J \
             > "$RESULTS/baseline_parallel.json"
 
-          # ── throughput ──────────────────────────────────────────
+          python3 - << 'PYEOF'
+          import json, os
+          for tag, f in [("single-stream",  "bench_results/baseline_single.json"),
+                         ("4-stream",       "bench_results/baseline_parallel.json")]:
+              if not os.path.exists(f): print(f"  {tag}: no data"); continue
+              d = json.load(open(f))
+              mbps = round(d['end']['sum_received']['bits_per_second']/1e6, 1)
+              print(f"  baseline {tag}: {mbps} Mbps")
+          PYEOF
+
+          # ── throughput ───────────────────────────────────────────
+          echo ""
           echo "=== THROUGHPUT ==="
           echo "proxy,streams,run,mbps" > "$RESULTS/throughput.csv"
 
@@ -50,16 +305,19 @@ jobs:
             SOCKS="${PROXY#*:}"
             for STREAMS in 1 4; do
               for RUN in $(seq 1 $RUNS); do
-                PCFG=$(mktemp /tmp/pc.XXXXXX.conf)
-                echo -e "[ProxyList]\nsocks5 ${SOCKS%%:*} ${SOCKS##*:}" > "$PCFG"
+                PCFG=$(mktemp)
+                printf '[ProxyList]\nsocks5 %s %s\n' \
+                  "${SOCKS%%:*}" "${SOCKS##*:}" > "$PCFG"
                 MBPS=$(proxychains4 -f "$PCFG" -q \
-                  iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR \
-                  -P $STREAMS -J 2>/dev/null \
+                  iperf3 -c $IPERF_TARGET -p 5201 \
+                  -t $IPERF_DUR -P $STREAMS -J 2>/dev/null \
                   | python3 -c "
           import json,sys
-          d=json.load(sys.stdin)
-          print(round(d['end']['sum_received']['bits_per_second']/1e6,2))
-          " 2>/dev/null || echo "0")
+          try:
+            d=json.load(sys.stdin)
+            print(round(d['end']['sum_received']['bits_per_second']/1e6,2))
+          except: print('0')
+          " || echo "0")
                 rm -f "$PCFG"
                 echo "$LABEL,$STREAMS,$RUN,$MBPS" >> "$RESULTS/throughput.csv"
                 echo "  $LABEL streams=$STREAMS run=$RUN → $MBPS Mbps"
@@ -67,75 +325,98 @@ jobs:
             done
           done
 
-          # ── latency ─────────────────────────────────────────────
+          # ── latency ──────────────────────────────────────────────
+          echo ""
           echo "=== LATENCY ==="
           for PROXY in "prisma:$PRISMA_SOCKS" "xray:$XRAY_SOCKS"; do
             LABEL="${PROXY%%:*}"
             SOCKS="${PROXY#*:}"
-            echo "--- $LABEL handshake latency (200 reqs) ---"
-            hyperfine --warmup 10 --runs 200 \
+            echo "--- $LABEL handshake (100 cold connections) ---"
+            ok_or_skip hyperfine \
+              --warmup 5 --runs 100 \
               --export-json "$RESULTS/latency_${LABEL}.json" \
-              "curl -s --socks5 $SOCKS http://$IPERF_TARGET:5300/ -o /dev/null" \
-              2>/dev/null || echo "hyperfine failed for $LABEL"
+              "curl -s --max-time 5 --socks5 $SOCKS $HTTP_TARGET/ -o /dev/null"
           done
 
-          # ── concurrency ─────────────────────────────────────────
+          python3 - << 'PYEOF'
+          import json, os
+          print("\nLatency summary:")
+          for label in ["prisma", "xray"]:
+              path = f"bench_results/latency_{label}.json"
+              if not os.path.exists(path): print(f"  {label}: no data"); continue
+              with open(path) as f: d = json.load(f)
+              times = sorted(t*1000 for t in d["results"][0]["times"])
+              n = len(times)
+              print(f"  {label:8s}  mean={sum(times)/n:.1f}ms  "
+                    f"p50={times[n//2]:.1f}ms  "
+                    f"p95={times[int(n*.95)]:.1f}ms  "
+                    f"p99={times[int(n*.99)]:.1f}ms")
+          PYEOF
+
+          # ── concurrency ──────────────────────────────────────────
+          echo ""
           echo "=== CONCURRENCY ==="
           echo "proxy,concurrency,rps,p99_ms,errors" > "$RESULTS/concurrency.csv"
           for PROXY in "prisma:$PRISMA_SOCKS" "xray:$XRAY_SOCKS"; do
             LABEL="${PROXY%%:*}"
             SOCKS="${PROXY#*:}"
-            for C in 10 50 100 200; do
+            for C in 10 50 100; do
               OUT=$(hey -n $((C*20)) -c $C \
-                -x "socks5://$SOCKS" \
-                "http://$IPERF_TARGET:5300/" 2>/dev/null || echo "FAILED")
-              RPS=$(echo "$OUT"  | grep 'Requests/sec' | awk '{print $2}' || echo "0")
-              P99=$(echo "$OUT"  | grep '99%'          | awk '{print $2}' | tr -d 's' || echo "0")
-              ERRS=$(echo "$OUT" | grep -c 'Error'     || echo "0")
+                -x "socks5://$SOCKS" "$HTTP_TARGET/" 2>&1 || true)
+              RPS=$(echo  "$OUT" | grep 'Requests/sec' | awk '{print $2}'    || echo "0")
+              P99=$(echo  "$OUT" | grep '99%'          | awk '{print $2}'    \
+                                 | tr -d 's'           || echo "0")
+              ERRS=$(echo "$OUT" | grep -c 'Error'                           || echo "0")
               echo "$LABEL,$C,$RPS,$P99,$ERRS" >> "$RESULTS/concurrency.csv"
-              echo "  $LABEL c=$C → RPS=$RPS p99=${P99}ms errors=$ERRS"
+              echo "  $LABEL c=$C → RPS=$RPS  p99=${P99}ms  errors=$ERRS"
             done
           done
 
-          # ── resources ───────────────────────────────────────────
+          # ── resources ────────────────────────────────────────────
+          echo ""
           echo "=== RESOURCES ==="
           echo "proxy,phase,rss_kb,cpu_pct" > "$RESULTS/resources.csv"
           for NAME in prisma xray; do
-            PID=$(pgrep -f "$NAME" | head -1 || echo "")
+            PID=$(pgrep -f "$NAME" 2>/dev/null | head -1 || true)
             if [[ -n "$PID" ]]; then
-              RSS=$(ps -o rss= -p "$PID" | tr -d ' ')
-              CPU=$(ps -o %cpu= -p "$PID" | tr -d ' ')
+              RSS=$(ps -o rss=  -p "$PID" 2>/dev/null | tr -d ' ' || echo "0")
+              CPU=$(ps -o %cpu= -p "$PID" 2>/dev/null | tr -d ' ' || echo "0")
               echo "$NAME,idle,$RSS,$CPU" >> "$RESULTS/resources.csv"
-              echo "  $NAME idle RSS=${RSS}kB CPU=${CPU}%"
+              echo "  $NAME  RSS=${RSS} kB  CPU=${CPU}%"
+            else
+              echo "  $NAME process not found — check logs above"
             fi
           done
 
-          # ── summary ─────────────────────────────────────────────
+          # ── full summary ─────────────────────────────────────────
           echo ""
-          echo "====== RESULTS SUMMARY ======"
+          echo "=============================="
+          echo "        RESULTS SUMMARY"
+          echo "=============================="
+          echo ""
           echo "--- throughput.csv ---"
           cat "$RESULTS/throughput.csv"
+          echo ""
           echo "--- concurrency.csv ---"
           cat "$RESULTS/concurrency.csv"
+          echo ""
           echo "--- resources.csv ---"
           cat "$RESULTS/resources.csv"
 
-          python3 - << 'PYEOF'
-          import json, os, glob
-          r = "./bench_results"
-          for label in ["prisma", "xray"]:
-              path = f"{r}/latency_{label}.json"
-              if not os.path.exists(path): continue
-              with open(path) as f: d = json.load(f)
-              times = sorted(t*1000 for t in d["results"][0]["times"])
-              n = len(times)
-              print(f"{label:8s}  p50={times[n//2]:.1f}ms  "
-                    f"p95={times[int(n*.95)]:.1f}ms  "
-                    f"p99={times[int(n*.99)]:.1f}ms  "
-                    f"mean={sum(times)/n:.1f}ms")
-          PYEOF
+      # ── 12. upload results ────────────────────────────────────────────────
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
         with:
-          name: bench-results
-          path: bench_results_*/
+          name: bench-results-${{ github.run_id }}
+          path: bench_results/
+          retention-days: 30
+
+      # ── 13. upload logs on failure ────────────────────────────────────────
+      - name: Upload process logs
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
+        with:
+          name: bench-logs-${{ github.run_id }}
+          path: /tmp/*.log
+          retention-days: 7
