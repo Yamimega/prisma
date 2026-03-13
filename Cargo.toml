@@ -69,3 +69,8 @@ proptest = "1"
 insta = { version = "1", features = ["yaml"] }
 tokio-test = "0.4"
 rcgen = "0.13"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

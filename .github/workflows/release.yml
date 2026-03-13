@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: prisma
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: prisma-linux-amd64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+            artifact: prisma-linux-arm64
+          - target: armv7-unknown-linux-gnueabihf
+            os: ubuntu-latest
+            artifact: prisma-linux-armv7
+            cross: true
+          # macOS
+          - target: x86_64-apple-darwin
+            os: macos-13
+            artifact: prisma-darwin-amd64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: prisma-darwin-arm64
+          # Windows
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: prisma-windows-amd64.exe
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            artifact: prisma-windows-arm64.exe
+          # FreeBSD
+          - target: x86_64-unknown-freebsd
+            os: ubuntu-latest
+            artifact: prisma-freebsd-amd64
+            cross: true
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Install cross for targets that need it
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      # Build with cross or cargo
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }} -p prisma-cli
+
+      - name: Build (cargo)
+        if: ${{ !matrix.cross }}
+        run: cargo build --release --target ${{ matrix.target }} -p prisma-cli
+
+      # Determine binary path and rename
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          BIN="target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}"
+          chmod +x "$BIN"
+          cp "$BIN" "${{ matrix.artifact }}"
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}.exe" "${{ matrix.artifact }}"
+
+      # Generate checksum
+      - name: Checksum (Unix)
+        if: runner.os != 'Windows'
+        run: sha256sum "${{ matrix.artifact }}" > "${{ matrix.artifact }}.sha256"
+
+      - name: Checksum (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash "${{ matrix.artifact }}" -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.artifact }}" | Out-File -Encoding ascii "${{ matrix.artifact }}.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sha256
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect binaries
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name 'prisma-*' \) -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Generate checksums file
+        run: |
+          cd release
+          cat *.sha256 > checksums-sha256.txt
+          cat checksums-sha256.txt
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          gh release create "$TAG" \
+            --title "Prisma $TAG" \
+            --generate-notes \
+            release/prisma-* \
+            release/checksums-sha256.txt

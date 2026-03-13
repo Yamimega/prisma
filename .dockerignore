@@ -1,0 +1,13 @@
+target/
+prisma-dashboard/node_modules/
+prisma-dashboard/.next/
+prisma-docs/node_modules/
+prisma-docs/build/
+.git/
+*.md
+!README.md
+LICENSE
+.github/
+.vscode/
+.idea/
+*.toml.bak

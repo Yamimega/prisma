@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "prisma"
+path = "src/main.rs"
+
 [dependencies]
 prisma-core = { path = "../prisma-core" }
 prisma-server = { path = "../prisma-server" }
