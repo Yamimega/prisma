@@ -9,15 +9,19 @@ pub enum XPortaEncoding {
     Binary,
 }
 
-impl XPortaEncoding {
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for XPortaEncoding {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "json" => Some(Self::Json),
-            "binary" => Some(Self::Binary),
-            _ => None,
+            "json" => Ok(Self::Json),
+            "binary" => Ok(Self::Binary),
+            _ => Err(()),
         }
     }
+}
 
+impl XPortaEncoding {
     pub fn content_type(&self) -> &'static str {
         match self {
             Self::Json => "application/json",

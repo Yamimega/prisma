@@ -16,6 +16,12 @@ pub struct Reassembler {
     last_delivery: Instant,
 }
 
+impl Default for Reassembler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Reassembler {
     /// Create a new reassembler starting at sequence 0.
     pub fn new() -> Self {
