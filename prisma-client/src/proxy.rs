@@ -1,5 +1,6 @@
 use anyhow::Result;
 use prisma_core::types::{CipherSuite, ClientId};
+use tracing::{info, warn};
 
 use crate::connector::{self, TransportStream};
 
@@ -20,14 +21,36 @@ pub struct ProxyContext {
 impl ProxyContext {
     /// Connect to the remote Prisma server using the configured transport.
     pub async fn connect(&self) -> Result<TransportStream> {
-        let server_name = self.server_name();
-        if self.use_quic {
-            connector::connect_quic(&self.server_addr, self.skip_cert_verify, &self.alpn_protocols, server_name).await
+        let transport = if self.use_quic {
+            "QUIC"
         } else if self.tls_on_tcp {
-            connector::connect_tcp_tls(&self.server_addr, server_name, self.skip_cert_verify, &self.alpn_protocols).await
+            "TLS-on-TCP"
+        } else {
+            "TCP"
+        };
+
+        let result = if self.use_quic {
+            connector::connect_quic(&self.server_addr, self.skip_cert_verify, &self.alpn_protocols, self.server_name()).await
+        } else if self.tls_on_tcp {
+            connector::connect_tcp_tls(&self.server_addr, self.server_name(), self.skip_cert_verify, &self.alpn_protocols).await
         } else {
             connector::connect_tcp(&self.server_addr).await
+        };
+
+        match &result {
+            Ok(_) => info!(
+                server = %self.server_addr,
+                transport = %transport,
+                "Connected to server"
+            ),
+            Err(e) => warn!(
+                server = %self.server_addr,
+                transport = %transport,
+                error = %e,
+                "Failed to connect to server"
+            ),
         }
+        result
     }
 
     /// Resolve the server name for TLS SNI.

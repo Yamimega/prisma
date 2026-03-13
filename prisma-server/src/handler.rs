@@ -50,7 +50,7 @@ pub async fn handle_tcp_connection(
     let (read, write) = stream.into_split();
     run_registered_session(
         session_keys, read, write, Transport::Tcp, peer_addr,
-        dns_cache, forward_config, state,
+        &auth, dns_cache, forward_config, state,
     )
     .await
 }
@@ -145,7 +145,7 @@ where
     let (read, write) = tokio::io::split(stream);
     run_registered_session(
         session_keys, read, write, Transport::Tcp, peer_addr,
-        dns_cache, forward_config, state,
+        &auth, dns_cache, forward_config, state,
     )
     .await
 }
@@ -174,7 +174,7 @@ pub async fn handle_quic_stream(
 
     run_registered_session(
         session_keys, recv, send, Transport::Quic, peer_addr,
-        dns_cache, forward_config, state,
+        &auth, dns_cache, forward_config, state,
     )
     .await
 }
@@ -212,6 +212,7 @@ async fn run_registered_session<R, W>(
     write: W,
     transport: Transport,
     peer_addr: String,
+    auth: &AuthStore,
     dns_cache: DnsCache,
     forward_config: PortForwardingConfig,
     state: ServerState,
@@ -220,13 +221,25 @@ where
     R: AsyncRead + Unpin + Send + 'static,
     W: AsyncWrite + Unpin + Send + 'static,
 {
+    let client_name = auth.client_name(&session_keys.client_id);
+    let display_name = client_name
+        .clone()
+        .unwrap_or_else(|| "unknown".into());
+    info!(
+        client_id = %session_keys.client_id.0,
+        client_name = %display_name,
+        peer = %peer_addr,
+        transport = ?transport,
+        "Client connected"
+    );
+
     let bytes_up = Arc::new(AtomicU64::new(0));
     let bytes_down = Arc::new(AtomicU64::new(0));
     let conn_info = ConnectionInfo {
         session_id: session_keys.session_id,
         client_id: Some(session_keys.client_id.0),
-        client_name: None,
-        peer_addr,
+        client_name,
+        peer_addr: peer_addr.clone(),
         transport,
         mode: SessionMode::Unknown,
         connected_at: Utc::now(),
@@ -253,6 +266,21 @@ where
     .await;
 
     state.connections.write().await.remove(&session_id);
+    match &result {
+        Ok(()) => info!(
+            session_id = %session_id,
+            client_name = %display_name,
+            peer = %peer_addr,
+            "Client disconnected"
+        ),
+        Err(e) => warn!(
+            session_id = %session_id,
+            client_name = %display_name,
+            peer = %peer_addr,
+            error = %e,
+            "Client disconnected with error"
+        ),
+    }
     result
 }
 

@@ -28,6 +28,17 @@ impl AuthStore {
     }
 }
 
+impl AuthStore {
+    /// Look up a client's display name by ID.
+    pub fn client_name(&self, client_id: &ClientId) -> Option<String> {
+        let guard = self.inner.try_read().ok()?;
+        guard
+            .clients
+            .get(&client_id.0)
+            .and_then(|e| e.name.clone())
+    }
+}
+
 impl AuthVerifier for AuthStore {
     fn verify(&self, client_id: &ClientId, auth_token: &[u8; 32], timestamp: u64) -> bool {
         let guard = match self.inner.try_read() {
