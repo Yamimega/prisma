@@ -72,7 +72,10 @@ pub fn encode_response(
 }
 
 /// Decode an upload response (extract piggyback download data).
-pub fn decode_response(data: &[u8], encoding: XPortaEncoding) -> Option<(Option<u32>, Option<Vec<u8>>)> {
+pub fn decode_response(
+    data: &[u8],
+    encoding: XPortaEncoding,
+) -> Option<(Option<u32>, Option<Vec<u8>>)> {
     match encoding {
         XPortaEncoding::Json => {
             let resp: UploadResponse = serde_json::from_slice(data).ok()?;

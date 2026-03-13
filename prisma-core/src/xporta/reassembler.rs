@@ -170,7 +170,8 @@ mod tests {
         assert!(!r.has_gap_timeout());
 
         // Artificially set last_delivery to long ago
-        r.last_delivery = Instant::now() - std::time::Duration::from_secs(REASSEMBLER_GAP_TIMEOUT_SECS + 1);
+        r.last_delivery =
+            Instant::now() - std::time::Duration::from_secs(REASSEMBLER_GAP_TIMEOUT_SECS + 1);
         assert!(r.has_gap_timeout());
     }
 

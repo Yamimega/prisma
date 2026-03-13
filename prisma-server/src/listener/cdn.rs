@@ -105,14 +105,11 @@ fn build_cdn_router(
             let first_secret = config
                 .authorized_clients
                 .first()
-                .map(|c| {
-                    prisma_core::util::hex_decode_32(&c.auth_secret)
-                        .unwrap_or([0u8; 32])
-                })
+                .map(|c| prisma_core::util::hex_decode_32(&c.auth_secret).unwrap_or([0u8; 32]))
                 .unwrap_or([0u8; 32]);
             let cookie_key = derive_cookie_key(&first_secret);
-            let encoding = XPortaEncoding::from_str(&xporta_cfg.encoding)
-                .unwrap_or(XPortaEncoding::Json);
+            let encoding =
+                XPortaEncoding::from_str(&xporta_cfg.encoding).unwrap_or(XPortaEncoding::Json);
 
             let xporta_sessions = Arc::new(dashmap::DashMap::new());
 
@@ -126,8 +123,8 @@ fn build_cdn_router(
             };
 
             // Register session init route
-            let mut xporta_router = Router::new()
-                .route(&xporta_cfg.session_path, post(xporta::session_init_handler));
+            let mut xporta_router =
+                Router::new().route(&xporta_cfg.session_path, post(xporta::session_init_handler));
 
             // Register data (upload) routes
             for path in &xporta_cfg.data_paths {
@@ -145,8 +142,11 @@ fn build_cdn_router(
             // Spawn session cleanup task
             xporta::spawn_session_cleanup(xporta_sessions, xporta_cfg.session_timeout_secs);
 
-            info!("XPorta transport enabled with {} data paths and {} poll paths",
-                xporta_cfg.data_paths.len(), xporta_cfg.poll_paths.len());
+            info!(
+                "XPorta transport enabled with {} data paths and {} poll paths",
+                xporta_cfg.data_paths.len(),
+                xporta_cfg.poll_paths.len()
+            );
         }
     }
 

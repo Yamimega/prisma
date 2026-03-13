@@ -198,7 +198,10 @@ pub async fn connect_xporta(
         (sender, cookie)
     };
 
-    debug!(cookie_len = session_cookie.len(), "XPorta session established");
+    debug!(
+        cookie_len = session_cookie.len(),
+        "XPorta session established"
+    );
 
     // Create channels
     let (upload_tx, upload_rx) = mpsc::channel::<Bytes>(256);
@@ -442,8 +445,7 @@ async fn upload_dispatcher(
         match sender.send_request(req).await {
             Ok(response) => {
                 // Read response for piggyback download data
-                if let Ok(body_bytes) =
-                    http_body_util::BodyExt::collect(response.into_body()).await
+                if let Ok(body_bytes) = http_body_util::BodyExt::collect(response.into_body()).await
                 {
                     let resp_data = body_bytes.to_bytes();
                     if let Some((dl_seq, dl_data)) = decode_response(&resp_data, encoding) {
@@ -516,8 +518,7 @@ async fn poll_loop(
 
         match sender.send_request(req).await {
             Ok(response) => {
-                if let Ok(body_bytes) =
-                    http_body_util::BodyExt::collect(response.into_body()).await
+                if let Ok(body_bytes) = http_body_util::BodyExt::collect(response.into_body()).await
                 {
                     let resp_data = body_bytes.to_bytes();
                     if let Some(items) = decode_poll_response(&resp_data) {

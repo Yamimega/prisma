@@ -83,10 +83,7 @@ fn extract_cookie(headers: &HeaderMap, cookie_name: &str) -> Option<String> {
 }
 
 /// Validate session cookie and return session_id.
-fn validate_session(
-    state: &XPortaState,
-    headers: &HeaderMap,
-) -> Option<[u8; 16]> {
+fn validate_session(state: &XPortaState, headers: &HeaderMap) -> Option<[u8; 16]> {
     let token = extract_cookie(headers, &state.cookie_name)?;
 
     // We need to try against all known client IDs in the session
@@ -366,11 +363,7 @@ pub async fn upload_handler(
         }
     }
 
-    let response_body = encode_response(
-        dl_seq,
-        dl_data.as_deref(),
-        state.encoding,
-    );
+    let response_body = encode_response(dl_seq, dl_data.as_deref(), state.encoding);
 
     Response::builder()
         .status(StatusCode::OK)
@@ -483,10 +476,7 @@ pub async fn poll_handler(
 }
 
 /// Spawn a background task that periodically cleans up idle sessions.
-pub fn spawn_session_cleanup(
-    sessions: Arc<DashMap<[u8; 16], XPortaSession>>,
-    timeout_secs: u64,
-) {
+pub fn spawn_session_cleanup(sessions: Arc<DashMap<[u8; 16], XPortaSession>>, timeout_secs: u64) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
         loop {

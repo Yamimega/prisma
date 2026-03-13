@@ -84,8 +84,8 @@ impl ProxyContext {
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("XPorta transport requires xporta config"))?;
 
-            let encoding = XPortaEncoding::from_str(&xporta_cfg.encoding)
-                .unwrap_or(XPortaEncoding::Json);
+            let encoding =
+                XPortaEncoding::from_str(&xporta_cfg.encoding).unwrap_or(XPortaEncoding::Json);
 
             let config = xporta_stream::XPortaConfig {
                 base_url: xporta_cfg.base_url.clone(),
