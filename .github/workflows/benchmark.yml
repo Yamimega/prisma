@@ -25,12 +25,115 @@ jobs:
           unzip Xray-linux-64.zip -d /usr/local/bin/
       - name: Run benchmark
         run: |
-          export PRISMA_SOCKS="127.0.0.1:1080"
-          export XRAY_SOCKS="127.0.0.1:10800"
-          export IPERF_TARGET="127.0.0.1"
-          export RESULTS_DIR="./bench_results"
-          mkdir -p "$RESULTS_DIR"
-          bash .github/workflows/bench_prisma_vs_xray.sh
+          set -euo pipefail
+          PRISMA_SOCKS="127.0.0.1:1080"
+          XRAY_SOCKS="127.0.0.1:10800"
+          IPERF_TARGET="127.0.0.1"
+          RESULTS="./bench_results"
+          RUNS=3
+          IPERF_DUR=20
+          mkdir -p "$RESULTS"
+
+          # ── baseline ────────────────────────────────────────────
+          echo "=== BASELINE ==="
+          iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR -J \
+            > "$RESULTS/baseline_single.json"
+          iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR -P 4 -J \
+            > "$RESULTS/baseline_parallel.json"
+
+          # ── throughput ──────────────────────────────────────────
+          echo "=== THROUGHPUT ==="
+          echo "proxy,streams,run,mbps" > "$RESULTS/throughput.csv"
+
+          for PROXY in "prisma:$PRISMA_SOCKS" "xray:$XRAY_SOCKS"; do
+            LABEL="${PROXY%%:*}"
+            SOCKS="${PROXY#*:}"
+            for STREAMS in 1 4; do
+              for RUN in $(seq 1 $RUNS); do
+                PCFG=$(mktemp /tmp/pc.XXXXXX.conf)
+                echo -e "[ProxyList]\nsocks5 ${SOCKS%%:*} ${SOCKS##*:}" > "$PCFG"
+                MBPS=$(proxychains4 -f "$PCFG" -q \
+                  iperf3 -c $IPERF_TARGET -p 5201 -t $IPERF_DUR \
+                  -P $STREAMS -J 2>/dev/null \
+                  | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          print(round(d['end']['sum_received']['bits_per_second']/1e6,2))
+          " 2>/dev/null || echo "0")
+                rm -f "$PCFG"
+                echo "$LABEL,$STREAMS,$RUN,$MBPS" >> "$RESULTS/throughput.csv"
+                echo "  $LABEL streams=$STREAMS run=$RUN → $MBPS Mbps"
+              done
+            done
+          done
+
+          # ── latency ─────────────────────────────────────────────
+          echo "=== LATENCY ==="
+          for PROXY in "prisma:$PRISMA_SOCKS" "xray:$XRAY_SOCKS"; do
+            LABEL="${PROXY%%:*}"
+            SOCKS="${PROXY#*:}"
+            echo "--- $LABEL handshake latency (200 reqs) ---"
+            hyperfine --warmup 10 --runs 200 \
+              --export-json "$RESULTS/latency_${LABEL}.json" \
+              "curl -s --socks5 $SOCKS http://$IPERF_TARGET:5300/ -o /dev/null" \
+              2>/dev/null || echo "hyperfine failed for $LABEL"
+          done
+
+          # ── concurrency ─────────────────────────────────────────
+          echo "=== CONCURRENCY ==="
+          echo "proxy,concurrency,rps,p99_ms,errors" > "$RESULTS/concurrency.csv"
+          for PROXY in "prisma:$PRISMA_SOCKS" "xray:$XRAY_SOCKS"; do
+            LABEL="${PROXY%%:*}"
+            SOCKS="${PROXY#*:}"
+            for C in 10 50 100 200; do
+              OUT=$(hey -n $((C*20)) -c $C \
+                -x "socks5://$SOCKS" \
+                "http://$IPERF_TARGET:5300/" 2>/dev/null || echo "FAILED")
+              RPS=$(echo "$OUT"  | grep 'Requests/sec' | awk '{print $2}' || echo "0")
+              P99=$(echo "$OUT"  | grep '99%'          | awk '{print $2}' | tr -d 's' || echo "0")
+              ERRS=$(echo "$OUT" | grep -c 'Error'     || echo "0")
+              echo "$LABEL,$C,$RPS,$P99,$ERRS" >> "$RESULTS/concurrency.csv"
+              echo "  $LABEL c=$C → RPS=$RPS p99=${P99}ms errors=$ERRS"
+            done
+          done
+
+          # ── resources ───────────────────────────────────────────
+          echo "=== RESOURCES ==="
+          echo "proxy,phase,rss_kb,cpu_pct" > "$RESULTS/resources.csv"
+          for NAME in prisma xray; do
+            PID=$(pgrep -f "$NAME" | head -1 || echo "")
+            if [[ -n "$PID" ]]; then
+              RSS=$(ps -o rss= -p "$PID" | tr -d ' ')
+              CPU=$(ps -o %cpu= -p "$PID" | tr -d ' ')
+              echo "$NAME,idle,$RSS,$CPU" >> "$RESULTS/resources.csv"
+              echo "  $NAME idle RSS=${RSS}kB CPU=${CPU}%"
+            fi
+          done
+
+          # ── summary ─────────────────────────────────────────────
+          echo ""
+          echo "====== RESULTS SUMMARY ======"
+          echo "--- throughput.csv ---"
+          cat "$RESULTS/throughput.csv"
+          echo "--- concurrency.csv ---"
+          cat "$RESULTS/concurrency.csv"
+          echo "--- resources.csv ---"
+          cat "$RESULTS/resources.csv"
+
+          python3 - << 'PYEOF'
+          import json, os, glob
+          r = "./bench_results"
+          for label in ["prisma", "xray"]:
+              path = f"{r}/latency_{label}.json"
+              if not os.path.exists(path): continue
+              with open(path) as f: d = json.load(f)
+              times = sorted(t*1000 for t in d["results"][0]["times"])
+              n = len(times)
+              print(f"{label:8s}  p50={times[n//2]:.1f}ms  "
+                    f"p95={times[int(n*.95)]:.1f}ms  "
+                    f"p99={times[int(n*.99)]:.1f}ms  "
+                    f"mean={sum(times)/n:.1f}ms")
+          PYEOF
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
