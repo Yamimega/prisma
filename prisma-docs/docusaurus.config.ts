@@ -13,8 +13,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://prisma-proxy.dev',
-  baseUrl: '/',
+  url: 'https://yamimega.github.io/',
+  baseUrl: '/prisma',
 
   onBrokenLinks: 'throw',
 
