@@ -253,7 +253,58 @@ jobs:
           tail -10 /tmp/xray-server.log || true
           echo "-- xray-client --"
           tail -10 /tmp/xray-client.log || true
+      - name: Debug connectivity
+        run: |
+          echo "=== Process check ==="
+          ps aux | grep -E 'prisma|xray|iperf' | grep -v grep
 
+          echo ""
+          echo "=== Port check ==="
+          ss -tlnp | grep -E '1080|8080|8443|9443|10800|5201|5300'
+
+          echo ""
+          echo "=== proxychains version ==="
+          proxychains4 -v 2>&1 | head -3 || true
+
+          echo ""
+          echo "=== Direct iperf3 (no proxy) ==="
+          iperf3 -c 127.0.0.1 -p 5201 -t 5 --json \
+            | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          print('Direct Mbps:', round(d['end']['sum_received']['bits_per_second']/1e6,1))
+          "
+
+          echo ""
+          echo "=== curl via Prisma SOCKS5 ==="
+          curl -v --max-time 10 --socks5 127.0.0.1:1080 \
+            http://127.0.0.1:5300/ 2>&1 | tail -20
+
+          echo ""
+          echo "=== curl via Xray SOCKS5 ==="
+          curl -v --max-time 10 --socks5 127.0.0.1:10800 \
+            http://127.0.0.1:5300/ 2>&1 | tail -20
+
+          echo ""
+          echo "=== proxychains iperf3 test (5s) ==="
+          PCFG=$(mktemp)
+          printf '[ProxyList]\nsocks5 127.0.0.1 1080\n' > "$PCFG"
+          cat "$PCFG"
+          proxychains4 -f "$PCFG" -q \
+            iperf3 -c 127.0.0.1 -p 5201 -t 5 --json 2>&1 \
+            || echo "proxychains iperf3 FAILED with exit $?"
+
+          echo ""
+          echo "=== Prisma logs ==="
+          cat /tmp/prisma-server.log || true
+          echo "---"
+          cat /tmp/prisma-client.log || true
+
+          echo ""
+          echo "=== Xray logs ==="
+          cat /tmp/xray-server.log || true
+          echo "---"
+          cat /tmp/xray-client.log || true
       # ── 11. run benchmark ─────────────────────────────────────────────────
       - name: Run benchmark
         run: |
