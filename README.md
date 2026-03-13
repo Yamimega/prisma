@@ -56,30 +56,44 @@ Browser ──HTTP──▶ prisma-dashboard (Next.js) ──REST/WS──▶ pr
 
 ### One-Line Install
 
-**Linux (x86_64):**
-```bash
-curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-amd64 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma
-```
+Automatically detects your OS and architecture:
 
-**Linux (aarch64):**
+**Linux / macOS:**
 ```bash
-curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-arm64 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma
-```
-
-**macOS (Apple Silicon / Intel):**
-```bash
-curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-darwin-$(uname -m) -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma
+curl -fsSL https://raw.githubusercontent.com/Yamimega/prisma/master/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/Yamimega/prisma/releases/latest/download/prisma-windows-amd64.exe" -OutFile "$env:LOCALAPPDATA\prisma.exe"
+irm https://raw.githubusercontent.com/Yamimega/prisma/master/install.ps1 | iex
 ```
 
-**Cargo (all platforms):**
+**Install + Setup** (also generates credentials, TLS certs, and example configs):
+
 ```bash
-cargo install --git https://github.com/Yamimega/prisma.git prisma-cli
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/Yamimega/prisma/master/install.sh | bash -s -- --setup
+
+# Windows (PowerShell)
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Yamimega/prisma/master/install.ps1))) -Setup
 ```
+
+<details>
+<summary>Manual platform-specific downloads</summary>
+
+| Platform | Command |
+|----------|---------|
+| Linux x86_64 | `curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-amd64 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma` |
+| Linux aarch64 | `curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-arm64 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma` |
+| Linux ARMv7 | `curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-linux-armv7 -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma` |
+| macOS | `curl -fsSL https://github.com/Yamimega/prisma/releases/latest/download/prisma-darwin-$(uname -m | sed s/x86_64/amd64/) -o /usr/local/bin/prisma && chmod +x /usr/local/bin/prisma` |
+| Windows x64 | `Invoke-WebRequest -Uri "https://github.com/Yamimega/prisma/releases/latest/download/prisma-windows-amd64.exe" -OutFile "$env:LOCALAPPDATA\prisma\prisma.exe"` |
+| Windows ARM64 | `Invoke-WebRequest -Uri "https://github.com/Yamimega/prisma/releases/latest/download/prisma-windows-arm64.exe" -OutFile "$env:LOCALAPPDATA\prisma\prisma.exe"` |
+| FreeBSD x86_64 | `fetch -o /usr/local/bin/prisma https://github.com/Yamimega/prisma/releases/latest/download/prisma-freebsd-amd64 && chmod +x /usr/local/bin/prisma` |
+| Cargo (any) | `cargo install --git https://github.com/Yamimega/prisma.git prisma-cli` |
+| Docker | `docker run --rm -v $(pwd):/config ghcr.io/yamimega/prisma server -c /config/server.toml` |
+
+</details>
 
 ### Prerequisites
 
