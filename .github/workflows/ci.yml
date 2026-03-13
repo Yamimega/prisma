@@ -61,6 +61,11 @@ jobs:
       - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
 
+      - name: Ensure cargo bin directory exists (Windows tar workaround)
+        if: runner.os == 'Windows'
+        run: mkdir -p "$USERPROFILE/.cargo/bin"
+        shell: bash
+
       - name: Install nextest
         uses: taiki-e/install-action@899b013517f9e7774591216672bf75a46bb9a481 # v2.9.4
         with:
