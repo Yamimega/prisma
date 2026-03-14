@@ -55,11 +55,7 @@ pub fn generate_auth_tag(
 /// # Panics
 ///
 /// Panics if `padding_len < AUTH_TAG_LEN` (the padding must be large enough to hold the tag).
-pub fn compute_tag_position(
-    master_secret: &[u8; 32],
-    epoch: u64,
-    padding_len: usize,
-) -> usize {
+pub fn compute_tag_position(master_secret: &[u8; 32], epoch: u64, padding_len: usize) -> usize {
     assert!(
         padding_len >= AUTH_TAG_LEN,
         "padding_len ({padding_len}) must be >= {AUTH_TAG_LEN}"
@@ -227,7 +223,10 @@ mod tests {
 
         let tag_a = generate_auth_tag(&secret_a, &eph, 42);
         let tag_b = generate_auth_tag(&secret_b, &eph, 42);
-        assert_ne!(tag_a, tag_b, "Different secrets must produce different tags");
+        assert_ne!(
+            tag_a, tag_b,
+            "Different secrets must produce different tags"
+        );
     }
 
     #[test]
@@ -272,7 +271,10 @@ mod tests {
         let secret = test_secret();
         // When padding_len == AUTH_TAG_LEN, the only valid position is 0.
         let pos = compute_tag_position(&secret, 42, AUTH_TAG_LEN);
-        assert_eq!(pos, 0, "With padding_len == AUTH_TAG_LEN, position must be 0");
+        assert_eq!(
+            pos, 0,
+            "With padding_len == AUTH_TAG_LEN, position must be 0"
+        );
     }
 
     #[test]
@@ -396,7 +398,10 @@ mod tests {
 
         // The padding should have random bytes — extremely unlikely to be all zeros.
         let all_zero = padding.iter().all(|&b| b == 0);
-        assert!(!all_zero, "Padding should contain random bytes, not all zeros");
+        assert!(
+            !all_zero,
+            "Padding should contain random bytes, not all zeros"
+        );
     }
 
     #[test]

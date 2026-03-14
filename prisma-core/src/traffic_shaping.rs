@@ -185,7 +185,7 @@ pub fn decode_bucketed_frame(data: &[u8]) -> Result<(u8, u16, u32, Vec<u8>), &'s
 /// Chaff frames use FLAG_CHAFF and contain random payload to maintain
 /// background traffic noise.
 pub fn generate_chaff_frame(bucket_sizes: &[u16]) -> Vec<u8> {
-    use crate::protocol::types::{FLAG_CHAFF, CMD_DATA};
+    use crate::protocol::types::{CMD_DATA, FLAG_CHAFF};
 
     let mut rng = rand::thread_rng();
     // Random small payload (32-128 bytes)
@@ -290,8 +290,7 @@ mod tests {
 
         // Frame size should be one of the bucket sizes
         assert!(
-            buckets.iter().any(|&b| frame.len() == b as usize)
-                || frame.len() == 16384,
+            buckets.iter().any(|&b| frame.len() == b as usize) || frame.len() == 16384,
             "Frame size {} not in bucket set",
             frame.len()
         );

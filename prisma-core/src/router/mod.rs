@@ -83,7 +83,11 @@ impl Router {
                 }
             })
             .collect();
-        Self { rules, cidrs, geoip }
+        Self {
+            rules,
+            cidrs,
+            geoip,
+        }
     }
 
     /// Match a connection by domain, IP, and port.

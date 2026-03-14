@@ -45,7 +45,11 @@ impl Fingerprint {
     pub fn resolve(self) -> Self {
         match self {
             Fingerprint::Random => {
-                let choices = [Fingerprint::Chrome, Fingerprint::Firefox, Fingerprint::Safari];
+                let choices = [
+                    Fingerprint::Chrome,
+                    Fingerprint::Firefox,
+                    Fingerprint::Safari,
+                ];
                 let idx = rand::Rng::gen_range(&mut rand::thread_rng(), 0..choices.len());
                 choices[idx]
             }
@@ -84,7 +88,9 @@ pub fn build_fingerprinted_tls_config(
     let mut config = if skip_cert_verify {
         rustls::ClientConfig::builder()
             .dangerous()
-            .with_custom_certificate_verifier(Arc::new(super_insecure_verifier::InsecureCertVerifier))
+            .with_custom_certificate_verifier(Arc::new(
+                super_insecure_verifier::InsecureCertVerifier,
+            ))
             .with_no_client_auth()
     } else {
         let mut roots = rustls::RootCertStore::empty();

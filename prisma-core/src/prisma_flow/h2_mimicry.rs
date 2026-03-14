@@ -192,8 +192,7 @@ mod tests {
     /// Parse a 9-byte HTTP/2 frame header and return (length, type, flags, stream_id).
     fn parse_frame_header(data: &[u8]) -> (usize, u8, u8, u32) {
         assert!(data.len() >= 9, "frame header must be at least 9 bytes");
-        let length =
-            ((data[0] as usize) << 16) | ((data[1] as usize) << 8) | (data[2] as usize);
+        let length = ((data[0] as usize) << 16) | ((data[1] as usize) << 8) | (data[2] as usize);
         let frame_type = data[3];
         let flags = data[4];
         let stream_id = ((data[5] as u32) << 24)
@@ -205,7 +204,11 @@ mod tests {
 
     /// Parse settings payload into Vec<(u16, u32)>.
     fn parse_settings_payload(data: &[u8]) -> Vec<(u16, u32)> {
-        assert_eq!(data.len() % 6, 0, "settings payload must be a multiple of 6 bytes");
+        assert_eq!(
+            data.len() % 6,
+            0,
+            "settings payload must be a multiple of 6 bytes"
+        );
         data.chunks_exact(6)
             .map(|chunk| {
                 let id = ((chunk[0] as u16) << 8) | (chunk[1] as u16);
@@ -339,7 +342,10 @@ mod tests {
         let settings_frame_len = 9 + settings_payload_len;
         let window_update_frame_len = 13;
 
-        assert_eq!(buf.len(), preface_len + settings_frame_len + window_update_frame_len);
+        assert_eq!(
+            buf.len(),
+            preface_len + settings_frame_len + window_update_frame_len
+        );
 
         // Parse the SETTINGS frame after preface
         let settings_header = &buf[preface_len..preface_len + 9];
@@ -366,7 +372,11 @@ mod tests {
     #[test]
     fn test_roundtrip_all_profiles() {
         // Verify that encoding then parsing round-trips for all profiles.
-        for profile in &[chrome_h2_profile(), firefox_h2_profile(), safari_h2_profile()] {
+        for profile in &[
+            chrome_h2_profile(),
+            firefox_h2_profile(),
+            safari_h2_profile(),
+        ] {
             let frame = build_h2_settings_frame(profile);
             let payload = &frame[9..];
             let parsed = parse_settings_payload(payload);

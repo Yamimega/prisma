@@ -31,9 +31,7 @@ pub fn has_ascii_prefix(data: &[u8], min_len: usize) -> bool {
     if data.len() < min_len {
         return false;
     }
-    data[..min_len]
-        .iter()
-        .all(|&b| b >= 0x20 && b <= 0x7E)
+    data[..min_len].iter().all(|&b| b >= 0x20 && b <= 0x7E)
 }
 
 /// Compute the average popcount (number of 1-bits per byte) of a byte slice.
@@ -63,7 +61,7 @@ pub fn shape_entropy_padding(data: &[u8], target_direction: PopcountTarget) -> V
 
     let data_len = data.len();
     let (bias_byte, target_popcount) = match target_direction {
-        PopcountTarget::Low => (0x01u8, 3.0),  // 1 bit per byte → pushes popcount down
+        PopcountTarget::Low => (0x01u8, 3.0), // 1 bit per byte → pushes popcount down
         PopcountTarget::High => (0xFEu8, 5.0), // 7 bits per byte → pushes popcount up
     };
 
@@ -144,7 +142,11 @@ mod tests {
         let prefix = generate_ascii_prefix();
         assert_eq!(prefix.len(), ASCII_PREFIX_LEN);
         for &b in &prefix {
-            assert!(b >= 0x20 && b <= 0x7E, "byte {:#04x} not printable ASCII", b);
+            assert!(
+                b >= 0x20 && b <= 0x7E,
+                "byte {:#04x} not printable ASCII",
+                b
+            );
         }
     }
 

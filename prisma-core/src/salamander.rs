@@ -160,7 +160,11 @@ pub fn deobfuscate_v4(data: &[u8], password: &[u8]) -> Option<Vec<u8>> {
     let key = SalamanderKey::new(password);
     let keystream = key.keystream_with_nonce(ciphertext.len(), &nonce);
 
-    let plaintext: Vec<u8> = ciphertext.iter().zip(keystream.iter()).map(|(d, k)| d ^ k).collect();
+    let plaintext: Vec<u8> = ciphertext
+        .iter()
+        .zip(keystream.iter())
+        .map(|(d, k)| d ^ k)
+        .collect();
     Some(plaintext)
 }
 
@@ -281,16 +285,15 @@ impl AsyncUdpSocket for SalamanderSocket {
 
                 // Always expect ASCII prefix + nonce (v4 always sends prefix).
                 // Fall back to nonce-at-offset-0 for backward compat with older senders.
-                let (nonce_start, has_prefix) =
-                    if data_len >= ASCII_PREFIX_LEN + 8
-                        && crate::entropy::has_ascii_prefix(&buf[..data_len], ASCII_PREFIX_LEN)
-                    {
-                        (ASCII_PREFIX_LEN, true)
-                    } else if data_len >= 8 {
-                        (0, false)
-                    } else {
-                        continue;
-                    };
+                let (nonce_start, has_prefix) = if data_len >= ASCII_PREFIX_LEN + 8
+                    && crate::entropy::has_ascii_prefix(&buf[..data_len], ASCII_PREFIX_LEN)
+                {
+                    (ASCII_PREFIX_LEN, true)
+                } else if data_len >= 8 {
+                    (0, false)
+                } else {
+                    continue;
+                };
 
                 // Extract 8-byte nonce
                 let mut nonce = [0u8; 8];
@@ -303,8 +306,10 @@ impl AsyncUdpSocket for SalamanderSocket {
                 };
 
                 // Deobfuscate payload in-place
-                self.cached_key
-                    .xor_in_place_with_nonce(&mut buf[payload_start..payload_start + payload_len], &nonce);
+                self.cached_key.xor_in_place_with_nonce(
+                    &mut buf[payload_start..payload_start + payload_len],
+                    &nonce,
+                );
 
                 // Shift deobfuscated payload to the beginning of the buffer
                 if payload_start > 0 {
@@ -453,7 +458,11 @@ mod tests {
 
         // First 8 bytes should be printable ASCII
         for &b in &prefixed[..8] {
-            assert!(b >= 0x20 && b <= 0x7E, "byte {:#04x} not printable ASCII", b);
+            assert!(
+                b >= 0x20 && b <= 0x7E,
+                "byte {:#04x} not printable ASCII",
+                b
+            );
         }
 
         // Stripping should recover original
@@ -470,6 +479,9 @@ mod tests {
         let ks1 = key.keystream_with_nonce(32, &nonce1);
         let ks2 = key.keystream_with_nonce(32, &nonce2);
 
-        assert_ne!(ks1, ks2, "Different nonces must produce different keystreams");
+        assert_ne!(
+            ks1, ks2,
+            "Different nonces must produce different keystreams"
+        );
     }
 }

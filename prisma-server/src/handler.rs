@@ -133,7 +133,10 @@ where
 
     if version != PRISMA_PROTOCOL_VERSION {
         // Not a supported protocol version — relay to fallback (treat as probe)
-        warn!(version, "Unsupported protocol version, relaying to fallback");
+        warn!(
+            version,
+            "Unsupported protocol version, relaying to fallback"
+        );
         if let Some(ref fallback) = fallback_addr {
             let mut frame_bytes = Vec::with_capacity(2 + frame_len);
             frame_bytes.extend_from_slice(&peek[0..2]);

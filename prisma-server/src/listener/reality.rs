@@ -249,12 +249,10 @@ mod tests {
 
         let config = PrismaTlsConfig {
             enabled: true,
-            mask_servers: vec![
-                MaskServerEntry {
-                    addr: "www.microsoft.com:443".into(),
-                    names: vec!["www.microsoft.com".into(), ".azure.com".into()],
-                },
-            ],
+            mask_servers: vec![MaskServerEntry {
+                addr: "www.microsoft.com:443".into(),
+                names: vec!["www.microsoft.com".into(), ".azure.com".into()],
+            }],
             ..Default::default()
         };
 

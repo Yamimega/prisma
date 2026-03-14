@@ -95,7 +95,7 @@ pub fn chrome_120() -> ClientHelloTemplate {
             0x0304, // TLS 1.3
             0x0303, // TLS 1.2
         ],
-        psk_key_exchange_modes: vec![0x01], // psk_dhe_ke
+        psk_key_exchange_modes: vec![0x01],       // psk_dhe_ke
         compress_certificate_algos: vec![0x0002], // brotli
     }
 }

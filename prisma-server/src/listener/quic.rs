@@ -328,9 +328,7 @@ fn build_tls_config(config: &ServerConfig) -> Result<rustls::ServerConfig> {
             .collect();
     } else {
         // Standard ALPN — "h3" only, no legacy "prisma-v3"/"prisma-v2"
-        tls_config.alpn_protocols = vec![
-            prisma_core::types::PRISMA_QUIC_ALPN.as_bytes().to_vec(),
-        ];
+        tls_config.alpn_protocols = vec![prisma_core::types::PRISMA_QUIC_ALPN.as_bytes().to_vec()];
     }
 
     // When H3 masquerade is enabled, ensure the h3 ALPN is present

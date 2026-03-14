@@ -21,10 +21,10 @@ pub struct GeoIPMatcher {
 impl GeoIPMatcher {
     /// Load a v2fly geoip.dat file.
     pub fn load(path: &str) -> Result<Self> {
-        let data = std::fs::read(path)
-            .with_context(|| format!("failed to read GeoIP file: {}", path))?;
-        let list = proto::GeoIPList::decode(data.as_slice())
-            .context("failed to decode GeoIP protobuf")?;
+        let data =
+            std::fs::read(path).with_context(|| format!("failed to read GeoIP file: {}", path))?;
+        let list =
+            proto::GeoIPList::decode(data.as_slice()).context("failed to decode GeoIP protobuf")?;
 
         let mut entries = HashMap::new();
         let mut total_cidrs = 0usize;
@@ -35,9 +35,8 @@ impl GeoIPMatcher {
             for cidr in &geo.cidr {
                 // Only handle IPv4 (4-byte addresses)
                 if cidr.ip.len() == 4 && cidr.prefix <= 32 {
-                    let ip_u32 = u32::from_be_bytes([
-                        cidr.ip[0], cidr.ip[1], cidr.ip[2], cidr.ip[3],
-                    ]);
+                    let ip_u32 =
+                        u32::from_be_bytes([cidr.ip[0], cidr.ip[1], cidr.ip[2], cidr.ip[3]]);
                     let mask = if cidr.prefix == 0 {
                         0
                     } else {
@@ -66,7 +65,11 @@ impl GeoIPMatcher {
         let ip_u32 = u32::from(ip);
         self.entries
             .get(&code)
-            .map(|cidrs| cidrs.iter().any(|(network, mask)| (ip_u32 & mask) == *network))
+            .map(|cidrs| {
+                cidrs
+                    .iter()
+                    .any(|(network, mask)| (ip_u32 & mask) == *network)
+            })
             .unwrap_or(false)
     }
 

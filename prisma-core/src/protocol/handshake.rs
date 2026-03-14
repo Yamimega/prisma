@@ -24,11 +24,7 @@ pub struct PrismaHandshakeClient {
 }
 
 impl PrismaHandshakeClient {
-    pub fn new(
-        client_id: ClientId,
-        auth_secret: [u8; 32],
-        preferred_cipher: CipherSuite,
-    ) -> Self {
+    pub fn new(client_id: ClientId, auth_secret: [u8; 32], preferred_cipher: CipherSuite) -> Self {
         Self {
             client_id,
             auth_secret,
@@ -89,9 +85,7 @@ impl PrismaClientAwaitingServerInit {
         encrypted_server_init: &[u8],
     ) -> Result<(SessionKeys, Vec<u16>), PrismaError> {
         if encrypted_server_init.len() < 32 + NONCE_SIZE + 2 {
-            return Err(
-                ProtocolError::InvalidFrame("PrismaServerInit too short".into()).into(),
-            );
+            return Err(ProtocolError::InvalidFrame("PrismaServerInit too short".into()).into());
         }
 
         // Extract server's public key from clear prefix
@@ -113,8 +107,8 @@ impl PrismaClientAwaitingServerInit {
 
         // Decrypt PrismaServerInit
         let cipher = create_cipher(CipherSuite::ChaCha20Poly1305, &prelim_key);
-        let (plaintext, _nonce) = decrypt_frame(cipher.as_ref(), encrypted_payload)
-            .map_err(|e| {
+        let (plaintext, _nonce) =
+            decrypt_frame(cipher.as_ref(), encrypted_payload).map_err(|e| {
                 ProtocolError::HandshakeFailed(format!("PrismaServerInit decrypt: {}", e))
             })?;
 
@@ -359,11 +353,8 @@ mod tests {
         };
 
         // Client step 1: send PrismaClientInit
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            auth_secret,
-            CipherSuite::ChaCha20Poly1305,
-        );
+        let client_hs =
+            PrismaHandshakeClient::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
         let (client_state, client_init_bytes) = client_hs.start();
 
         // Server step 1: process PrismaClientInit, produce PrismaServerInit
@@ -420,11 +411,8 @@ mod tests {
             auth_secret: wrong_secret,
         };
 
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            client_secret,
-            CipherSuite::ChaCha20Poly1305,
-        );
+        let client_hs =
+            PrismaHandshakeClient::new(client_id, client_secret, CipherSuite::ChaCha20Poly1305);
         let (_, client_init_bytes) = client_hs.start();
 
         let result = PrismaHandshakeServer::process_client_init(
@@ -450,11 +438,8 @@ mod tests {
             auth_secret,
         };
 
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            auth_secret,
-            CipherSuite::ChaCha20Poly1305,
-        );
+        let client_hs =
+            PrismaHandshakeClient::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
         let (_, client_init_bytes) = client_hs.start();
 
         let result = PrismaHandshakeServer::process_client_init(
@@ -480,11 +465,7 @@ mod tests {
         };
 
         // Use AES-256-GCM cipher suite
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            auth_secret,
-            CipherSuite::Aes256Gcm,
-        );
+        let client_hs = PrismaHandshakeClient::new(client_id, auth_secret, CipherSuite::Aes256Gcm);
         let (client_state, client_init_bytes) = client_hs.start();
 
         let padding_range = PaddingRange::new(10, 128);
@@ -522,11 +503,8 @@ mod tests {
             auth_secret,
         };
 
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            auth_secret,
-            CipherSuite::ChaCha20Poly1305,
-        );
+        let client_hs =
+            PrismaHandshakeClient::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
         let (client_state, client_init_bytes) = client_hs.start();
 
         let (server_init_bytes, server_state) = PrismaHandshakeServer::process_client_init(
@@ -559,11 +537,8 @@ mod tests {
             auth_secret,
         };
 
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            auth_secret,
-            CipherSuite::ChaCha20Poly1305,
-        );
+        let client_hs =
+            PrismaHandshakeClient::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
         let (client_state, client_init_bytes) = client_hs.start();
 
         let (server_init_bytes, server_state) = PrismaHandshakeServer::process_client_init(
@@ -601,11 +576,8 @@ mod tests {
             auth_secret,
         };
 
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            auth_secret,
-            CipherSuite::ChaCha20Poly1305,
-        );
+        let client_hs =
+            PrismaHandshakeClient::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
         let (client_state, client_init_bytes) = client_hs.start();
 
         let (server_init_bytes, _server_state) = PrismaHandshakeServer::process_client_init(
@@ -646,11 +618,8 @@ mod tests {
         let client_id = ClientId::new();
         let auth_secret = [0x42u8; 32];
 
-        let client_hs = PrismaHandshakeClient::new(
-            client_id,
-            auth_secret,
-            CipherSuite::ChaCha20Poly1305,
-        );
+        let client_hs =
+            PrismaHandshakeClient::new(client_id, auth_secret, CipherSuite::ChaCha20Poly1305);
         let (client_state, _) = client_hs.start();
 
         // Too-short data should fail

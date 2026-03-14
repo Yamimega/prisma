@@ -238,11 +238,7 @@ impl TransportSelector {
         let health = self.health.read().await;
         self.fallback_order
             .iter()
-            .filter_map(|&t| {
-                health
-                    .get(&t)
-                    .map(|m| (t, m.healthy, m.failure_rate()))
-            })
+            .filter_map(|&t| health.get(&t).map(|m| (t, m.healthy, m.failure_rate())))
             .collect()
     }
 }
@@ -265,10 +261,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_fallback_on_failure() {
-        let selector = TransportSelector::new(vec![
-            TransportType::QuicV2,
-            TransportType::PrismaTls,
-        ]);
+        let selector =
+            TransportSelector::new(vec![TransportType::QuicV2, TransportType::PrismaTls]);
 
         // Simulate QuicV2 failures
         for _ in 0..5 {
@@ -281,10 +275,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_recovery() {
-        let selector = TransportSelector::new(vec![
-            TransportType::QuicV2,
-            TransportType::PrismaTls,
-        ]);
+        let selector =
+            TransportSelector::new(vec![TransportType::QuicV2, TransportType::PrismaTls]);
 
         // Fail QuicV2
         for _ in 0..5 {
@@ -297,7 +289,9 @@ mod tests {
         }
 
         let snapshot = selector.health_snapshot().await;
-        let quic_health = snapshot.iter().find(|(t, _, _)| *t == TransportType::QuicV2);
+        let quic_health = snapshot
+            .iter()
+            .find(|(t, _, _)| *t == TransportType::QuicV2);
         assert!(quic_health.unwrap().1); // healthy = true
     }
 

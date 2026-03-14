@@ -211,10 +211,7 @@ impl RoutingRule {
             router::RuleCondition::GeoIp(s) => RuleCondition::IpCidr(format!("geoip:{}", s)),
             router::RuleCondition::Port(s) => {
                 if let Some((a, b)) = s.split_once('-') {
-                    RuleCondition::PortRange(
-                        a.parse().unwrap_or(0),
-                        b.parse().unwrap_or(0),
-                    )
+                    RuleCondition::PortRange(a.parse().unwrap_or(0), b.parse().unwrap_or(0))
                 } else {
                     let p = s.parse().unwrap_or(0);
                     RuleCondition::PortRange(p, p)
@@ -497,7 +494,9 @@ pub struct MaskServerEntry {
     pub names: Vec<String>,
 }
 
-fn default_auth_rotation_hours() -> u64 { 1 }
+fn default_auth_rotation_hours() -> u64 {
+    1
+}
 
 impl Default for PrismaTlsConfig {
     fn default() -> Self {

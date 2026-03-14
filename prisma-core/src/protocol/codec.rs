@@ -65,7 +65,16 @@ pub fn decode_client_init(data: &[u8]) -> Result<PrismaClientInit, ProtocolError
 pub fn encode_server_init(msg: &PrismaServerInit) -> Vec<u8> {
     let bucket_bytes = msg.bucket_sizes.len() * 2;
     let mut buf = Vec::with_capacity(
-        1 + 16 + 32 + 32 + 2 + 2 + 4 + 2 + msg.session_ticket.len() + 2 + bucket_bytes
+        1 + 16
+            + 32
+            + 32
+            + 2
+            + 2
+            + 4
+            + 2
+            + msg.session_ticket.len()
+            + 2
+            + bucket_bytes
             + msg.padding.len(),
     );
     buf.push(msg.status as u8);

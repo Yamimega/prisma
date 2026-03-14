@@ -132,7 +132,7 @@ impl ClientHelloBuilder {
         let handshake_len = body.len();
         let mut handshake = Vec::with_capacity(4 + handshake_len);
         handshake.push(0x01); // Handshake type: ClientHello
-        // 3-byte length (big-endian)
+                              // 3-byte length (big-endian)
         handshake.push(((handshake_len >> 16) & 0xff) as u8);
         handshake.push(((handshake_len >> 8) & 0xff) as u8);
         handshake.push((handshake_len & 0xff) as u8);
@@ -217,41 +217,46 @@ impl ClientHelloBuilder {
         let body_so_far = body.len();
         let total_without_padding = overhead + body_so_far + 2 + ext_bytes_no_padding.len();
 
-        let padding_data = if config.padding_target > 0 && total_without_padding < config.padding_target
-        {
-            // We need to add a padding extension. The padding extension header is 4 bytes.
-            let available = config.padding_target - total_without_padding;
-            if available > 4 {
-                let pad_content_len = available - 4; // subtract extension header (type + length)
-                let content = if let Some(ref beacon) = config.padding_content {
-                    let mut c = beacon.clone();
-                    c.resize(pad_content_len, 0x00);
-                    c
+        let padding_data =
+            if config.padding_target > 0 && total_without_padding < config.padding_target {
+                // We need to add a padding extension. The padding extension header is 4 bytes.
+                let available = config.padding_target - total_without_padding;
+                if available > 4 {
+                    let pad_content_len = available - 4; // subtract extension header (type + length)
+                    let content = if let Some(ref beacon) = config.padding_content {
+                        let mut c = beacon.clone();
+                        c.resize(pad_content_len, 0x00);
+                        c
+                    } else {
+                        vec![0x00; pad_content_len]
+                    };
+                    Some(content)
                 } else {
-                    vec![0x00; pad_content_len]
-                };
-                Some(content)
-            } else {
-                // Not enough room for a meaningful padding extension
-                None
-            }
-        } else {
-            // No padding needed or target already exceeded
-            if config.extensions_order.contains(&0x0015) {
-                // Padding was requested but not needed for size; include minimal
-                if let Some(ref beacon) = config.padding_content {
-                    Some(beacon.clone())
-                } else {
+                    // Not enough room for a meaningful padding extension
                     None
                 }
             } else {
-                None
-            }
-        };
+                // No padding needed or target already exceeded
+                if config.extensions_order.contains(&0x0015) {
+                    // Padding was requested but not needed for size; include minimal
+                    if let Some(ref beacon) = config.padding_content {
+                        Some(beacon.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            };
 
         // Rebuild extensions with padding
-        let ext_bytes =
-            Self::build_extensions(config, grease_ext, grease_group, grease_version, padding_data);
+        let ext_bytes = Self::build_extensions(
+            config,
+            grease_ext,
+            grease_group,
+            grease_version,
+            padding_data,
+        );
 
         // --- 8. Append extensions ---
         body.extend_from_slice(&(ext_bytes.len() as u16).to_be_bytes());
@@ -284,8 +289,9 @@ impl ClientHelloBuilder {
                 0x0000 => {
                     // server_name (SNI)
                     if !config.server_name.is_empty() {
-                        ext_bytes
-                            .extend_from_slice(&extensions::build_sni_extension(&config.server_name));
+                        ext_bytes.extend_from_slice(&extensions::build_sni_extension(
+                            &config.server_name,
+                        ));
                     }
                 }
                 0x0005 => {
@@ -339,10 +345,11 @@ impl ClientHelloBuilder {
                 0x001b => {
                     // compress_certificate
                     if !config.compress_certificate_algos.is_empty() {
-                        ext_bytes
-                            .extend_from_slice(&extensions::build_compress_certificate_extension(
+                        ext_bytes.extend_from_slice(
+                            &extensions::build_compress_certificate_extension(
                                 &config.compress_certificate_algos,
-                            ));
+                            ),
+                        );
                     }
                 }
                 0x0023 => {
@@ -441,9 +448,8 @@ mod tests {
         assert_eq!(record[5], 0x01, "handshake type should be ClientHello");
 
         // 3-byte handshake length
-        let hs_len = ((record[6] as usize) << 16)
-            | ((record[7] as usize) << 8)
-            | (record[8] as usize);
+        let hs_len =
+            ((record[6] as usize) << 16) | ((record[7] as usize) << 8) | (record[8] as usize);
         assert_eq!(hs_len, record.len() - 9);
     }
 
@@ -502,7 +508,10 @@ mod tests {
 
         // First cipher suite should be a GREASE value
         let first_cs = u16::from_be_bytes([body[pos + 2], body[pos + 3]]);
-        assert!(grease::is_grease(first_cs), "first cipher suite should be GREASE");
+        assert!(
+            grease::is_grease(first_cs),
+            "first cipher suite should be GREASE"
+        );
     }
 
     #[test]

@@ -30,8 +30,7 @@ pub fn looks_like_prisma_hello(bytes: &[u8]) -> bool {
     }
     let frame_len = u16::from_be_bytes([bytes[0], bytes[1]]);
     let version = bytes[2];
-    frame_len >= MIN_CLIENT_HELLO_SIZE
-        && version == PRISMA_PROTOCOL_VERSION
+    frame_len >= MIN_CLIENT_HELLO_SIZE && version == PRISMA_PROTOCOL_VERSION
 }
 
 /// Build a `tokio_rustls::TlsAcceptor` for wrapping TCP connections in TLS.

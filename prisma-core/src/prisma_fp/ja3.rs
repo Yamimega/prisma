@@ -213,7 +213,10 @@ pub fn compute_ja4(client_hello: &[u8]) -> Option<String> {
     // Second part: sorted ciphers SHA-256, first 12 hex chars
     let mut sorted_ciphers = non_grease_ciphers;
     sorted_ciphers.sort();
-    let ciphers_str: Vec<String> = sorted_ciphers.iter().map(|c| format!("{:04x}", c)).collect();
+    let ciphers_str: Vec<String> = sorted_ciphers
+        .iter()
+        .map(|c| format!("{:04x}", c))
+        .collect();
     let ciphers_joined = ciphers_str.join(",");
     let mut hasher_b = Sha256::new();
     hasher_b.update(ciphers_joined.as_bytes());
@@ -228,7 +231,10 @@ pub fn compute_ja4(client_hello: &[u8]) -> Option<String> {
         .copied()
         .collect();
     sorted_extensions.sort();
-    let ext_str: Vec<String> = sorted_extensions.iter().map(|e| format!("{:04x}", e)).collect();
+    let ext_str: Vec<String> = sorted_extensions
+        .iter()
+        .map(|e| format!("{:04x}", e))
+        .collect();
     let ext_joined = ext_str.join(",");
     let mut hasher_c = Sha256::new();
     hasher_c.update(ext_joined.as_bytes());
@@ -454,7 +460,10 @@ mod tests {
         // are not part of the JA3 input)
         let body2 = ClientHelloBuilder::build_client_hello_body(&config);
         let hash2 = compute_ja3(&body2).unwrap();
-        assert_eq!(hash_str, hash2, "JA3 should be deterministic for same config");
+        assert_eq!(
+            hash_str, hash2,
+            "JA3 should be deterministic for same config"
+        );
     }
 
     #[test]
@@ -521,7 +530,11 @@ mod tests {
         );
         // Format: part_a_part_b_part_c (two underscores)
         let parts: Vec<&str> = ja4_str.split('_').collect();
-        assert_eq!(parts.len(), 3, "JA4 should have 3 underscore-separated parts");
+        assert_eq!(
+            parts.len(),
+            3,
+            "JA4 should have 3 underscore-separated parts"
+        );
         // part_b and part_c should be 12 hex chars each
         assert_eq!(parts[1].len(), 12);
         assert_eq!(parts[2].len(), 12);
