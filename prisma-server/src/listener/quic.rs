@@ -107,8 +107,12 @@ fn create_server_endpoint(
         udp_socket
     };
 
+    // Support both QUIC v1 and v2 (RFC 9369) so clients can use either.
+    let mut endpoint_config = quinn::EndpointConfig::default();
+    endpoint_config.supported_versions(vec![1, prisma_core::types::QUIC_VERSION_2]);
+
     let endpoint = Endpoint::new_with_abstract_socket(
-        quinn::EndpointConfig::default(),
+        endpoint_config,
         Some(server_config),
         socket,
         runtime,

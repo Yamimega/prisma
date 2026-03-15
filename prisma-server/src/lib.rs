@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod bandwidth;
 pub mod camouflage;
+pub mod channel_stream;
 pub mod forward;
 pub mod grpc_stream;
 pub mod handler;

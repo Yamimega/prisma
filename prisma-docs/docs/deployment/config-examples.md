@@ -460,6 +460,8 @@ alpn_protocols = ["h3"]
 [traffic_shaping]
 padding_mode = "bucket"
 bucket_sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+timing_jitter_ms = 5
+chaff_interval_ms = 500
 
 [congestion]
 mode = "bbr"
@@ -490,6 +492,9 @@ entropy_camouflage = true
 [identity]
 client_id = "YOUR-CLIENT-UUID"
 auth_secret = "YOUR-AUTH-SECRET-HEX"
+
+[traffic_shaping]
+padding_mode = "bucket"
 
 [congestion]
 mode = "bbr"
@@ -568,13 +573,17 @@ fallback_addr = "example.com:443"
 alpn_protocols = ["h2", "http/1.1"]
 salamander_password = "YOUR-OBFUSCATION-KEY"
 
+[traffic_shaping]
+padding_mode = "random"
+timing_jitter_ms = 3
+
 [congestion]
 mode = "bbr"
 
 [port_hopping]
 enabled = true
-base_port = 10000
-port_range = 50000
+base_port = 20000
+port_range = 40000
 interval_secs = 60
 grace_period_secs = 10
 
@@ -653,10 +662,14 @@ server_addr = "proxy.example.com:443"
 cipher_suite = "chacha20-poly1305"
 transport = "xporta"
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+fingerprint = "chrome"
 
 [identity]
 client_id = "CLIENT-UUID-1"
 auth_secret = "CLIENT-SECRET-1-HEX"
+
+[traffic_shaping]
+padding_mode = "random"
 
 [xporta]
 base_url = "https://proxy.example.com"

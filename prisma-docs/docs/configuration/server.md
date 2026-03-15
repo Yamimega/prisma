@@ -55,6 +55,7 @@ The server is configured via a TOML file (default: `server.toml`). Configuration
 | `camouflage.alpn_protocols` | string[] | `["h2", "http/1.1"]` | TLS/QUIC ALPN protocols |
 | `camouflage.h3_cover_site` | string? | — | Upstream URL for HTTP/3 masquerade cover site |
 | `camouflage.h3_static_dir` | string? | — | Local static files directory for H3 masquerade |
+| `camouflage.salamander_password` | string? | — | Salamander UDP obfuscation password (QUIC only) |
 | `cdn.enabled` | bool | `false` | Enable CDN transport listener (WS, gRPC, XHTTP) |
 | `cdn.listen_addr` | string | `"0.0.0.0:443"` | CDN listener bind address |
 | `cdn.tls.cert_path` | string? | — | CDN TLS certificate (e.g. Cloudflare Origin Certificate) |
@@ -83,7 +84,6 @@ The server is configured via a TOML file (default: `server.toml`). Configuration
 | `cdn.xporta.max_sessions_per_client` | u16 | `8` | Max concurrent sessions per client |
 | `cdn.xporta.cookie_name` | string | `"_sess"` | Session cookie name |
 | `cdn.xporta.encoding` | string | `"json"` | Encoding: `"json"` / `"binary"` |
-| `camouflage.salamander_password` | string? | — | Salamander UDP obfuscation password (QUIC only) |
 | `dns_upstream` | string | `"8.8.8.8:53"` | Upstream DNS server for CMD_DNS_QUERY forwarding |
 | `congestion.mode` | string | `"bbr"` | Congestion control: `"brutal"` / `"bbr"` / `"adaptive"` |
 | `congestion.target_bandwidth` | string? | — | Target bandwidth for brutal/adaptive (e.g., `"100mbps"`) |

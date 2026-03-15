@@ -550,6 +550,46 @@
   background: linear-gradient(90deg, #dc2626, #f87171);
 }
 
+/* Hover tooltip on bar charts */
+.barTooltip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+
+.barTrack:hover .barTooltip {
+  opacity: 1;
+}
+
+/* Direction indicator next to chart titles */
+.directionHint {
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+  opacity: 0.65;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Baseline comparison percentage */
+.baselinePct {
+  font-size: 0.7rem;
+  margin-left: 0.35rem;
+  opacity: 0.6;
+}
+
 /* Stability badge — flags high-variance measurements */
 .unstableBadge {
   display: inline-flex;

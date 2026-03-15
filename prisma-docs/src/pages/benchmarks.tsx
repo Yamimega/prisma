@@ -211,6 +211,14 @@ function StabilityBadge({stable}: {stable: boolean}): ReactNode {
   );
 }
 
+function DirectionHint({higher}: {higher: boolean}): ReactNode {
+  return (
+    <span className={styles.directionHint}>
+      {higher ? '\u2191 higher is better' : '\u2193 lower is better'}
+    </span>
+  );
+}
+
 function hasPerSizeData(scenarios: Scenario[]): boolean {
   return scenarios.some(s => s.download_small_mbps > 0 || s.download_medium_mbps > 0 || s.download_large_mbps > 0);
 }
@@ -220,22 +228,27 @@ function ThroughputChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
   const maxUpload = Math.max(...scenarios.map(s => s.upload_mbps));
   const maxVal = Math.max(maxDownload, maxUpload);
   const showPerSize = hasPerSizeData(scenarios);
+  const baseline = scenarios.find(s => s.group === 'baseline');
 
   return (
     <section className={styles.section}>
       <Heading as="h2" className={styles.sectionTitle}>
         {translate({id: 'benchmarks.throughput.title', message: 'Throughput Comparison'})}
       </Heading>
+      <p style={{color: 'var(--ifm-font-color-secondary)', fontSize: '0.9rem', marginBottom: '1rem'}}>
+        {translate({id: 'benchmarks.throughput.desc', message: 'Single-stream transfer speed through the proxy tunnel.'})}
+      </p>
       <Legend />
 
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.throughput.download', message: 'Download (Mbps)'})}
           {showPerSize && <span style={{fontSize: '0.7rem', marginLeft: '0.5rem', opacity: 0.7}}>weighted: 0.3S + 0.4M + 0.3L</span>}
+          <DirectionHint higher={true} />
         </div>
         {scenarios.map(s => (
           <div className={styles.barRow} key={`dl-${s.label}`}>
-            <span className={styles.barLabel}>
+            <span className={styles.barLabel} title={s.name}>
               {s.name}
               <StabilityBadge stable={s.download_stable ?? true} />
             </span>
@@ -244,8 +257,14 @@ function ThroughputChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${(s.download_mbps / maxVal) * 100}%`}}
               />
+              <span className={styles.barTooltip}>{fmt(s.download_mbps, 0)} Mbps</span>
             </div>
-            <span className={styles.barValue}>{fmt(s.download_mbps, 0)}</span>
+            <span className={styles.barValue}>
+              {fmt(s.download_mbps, 0)}
+              {baseline && s.group !== 'baseline' && baseline.download_mbps > 0 && (
+                <span className={styles.baselinePct}>{Math.round(s.download_mbps / baseline.download_mbps * 100)}%</span>
+              )}
+            </span>
           </div>
         ))}
       </div>
@@ -280,10 +299,11 @@ function ThroughputChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.throughput.upload', message: 'Upload (Mbps)'})}
+          <DirectionHint higher={true} />
         </div>
         {scenarios.map(s => (
           <div className={styles.barRow} key={`ul-${s.label}`}>
-            <span className={styles.barLabel}>
+            <span className={styles.barLabel} title={s.name}>
               {s.name}
               <StabilityBadge stable={s.upload_stable ?? true} />
             </span>
@@ -292,6 +312,7 @@ function ThroughputChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${(s.upload_mbps / maxVal) * 100}%`}}
               />
+              <span className={styles.barTooltip}>{fmt(s.upload_mbps, 0)} Mbps</span>
             </div>
             <span className={styles.barValue}>{fmt(s.upload_mbps, 0)}</span>
           </div>
@@ -311,20 +332,25 @@ function LatencyChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <Heading as="h2" className={styles.sectionTitle}>
         {translate({id: 'benchmarks.latency.title', message: 'Latency Comparison'})}
       </Heading>
+      <p style={{color: 'var(--ifm-font-color-secondary)', fontSize: '0.9rem', marginBottom: '1rem'}}>
+        {translate({id: 'benchmarks.latency.ttfb.desc', message: 'Time from request to first response byte through the tunnel.'})}
+      </p>
       <Legend />
 
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.latency.ttfb', message: 'TTFB Latency (ms)'})}
+          <DirectionHint higher={false} />
         </div>
         {proxied.map(s => (
           <div className={styles.barRow} key={`lat-${s.label}`}>
-            <span className={styles.barLabel}>{s.name}</span>
+            <span className={styles.barLabel} title={s.name}>{s.name}</span>
             <div className={styles.barTrack}>
               <div
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${(s.latency_ms / maxLatency) * 100}%`}}
               />
+              <span className={styles.barTooltip}>{fmt(s.latency_ms, 2)} ms</span>
             </div>
             <span className={styles.barValue}>{fmt(s.latency_ms, 2)} ms</span>
           </div>
@@ -334,15 +360,20 @@ function LatencyChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.latency.handshake', message: 'Handshake Time (ms)'})}
+          <DirectionHint higher={false} />
         </div>
+        <p style={{color: 'var(--ifm-font-color-secondary)', fontSize: '0.85rem', marginBottom: '0.75rem', marginTop: '-0.25rem'}}>
+          {translate({id: 'benchmarks.latency.handshake.desc', message: 'Connection setup time including TLS/QUIC negotiation.'})}
+        </p>
         {proxied.map(s => (
           <div className={styles.barRow} key={`hs-${s.label}`}>
-            <span className={styles.barLabel}>{s.name}</span>
+            <span className={styles.barLabel} title={s.name}>{s.name}</span>
             <div className={styles.barTrack}>
               <div
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${(s.handshake_ms / maxHandshake) * 100}%`}}
               />
+              <span className={styles.barTooltip}>{fmt(s.handshake_ms, 2)} ms</span>
             </div>
             <span className={styles.barValue}>{fmt(s.handshake_ms, 2)} ms</span>
           </div>
@@ -506,15 +537,17 @@ function ResourceSection({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.resources.cpuChart', message: 'CPU Usage (%) — lower is better'})}
+          <DirectionHint higher={false} />
         </div>
         {sortedByCpu.map(s => (
           <div className={styles.barRow} key={`cpu-${s.label}`}>
-            <span className={styles.barLabel}>{s.name}</span>
+            <span className={styles.barLabel} title={s.name}>{s.name}</span>
             <div className={styles.barTrack}>
               <div
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${maxCpu > 0 ? (s.cpu_avg_pct / maxCpu) * 100 : 0}%`}}
               />
+              <span className={styles.barTooltip}>{fmt(s.cpu_avg_pct)}%</span>
             </div>
             <span className={styles.barValue}>{fmt(s.cpu_avg_pct)}%</span>
           </div>
@@ -524,15 +557,17 @@ function ResourceSection({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.resources.memChart', message: 'Memory Idle (KB) — lower is better'})}
+          <DirectionHint higher={false} />
         </div>
         {sortedByMem.map(s => (
           <div className={styles.barRow} key={`mem-${s.label}`}>
-            <span className={styles.barLabel}>{s.name}</span>
+            <span className={styles.barLabel} title={s.name}>{s.name}</span>
             <div className={styles.barTrack}>
               <div
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${maxMem > 0 ? (s.memory_idle_kb / maxMem) * 100 : 0}%`}}
               />
+              <span className={styles.barTooltip}>{s.memory_idle_kb.toLocaleString()} KB</span>
             </div>
             <span className={styles.barValue}>{s.memory_idle_kb.toLocaleString()}</span>
           </div>
@@ -605,15 +640,17 @@ function EfficiencyChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.efficiency.perMb', message: 'Mbps per MB RAM (higher is better)'})}
+          <DirectionHint higher={true} />
         </div>
         {sortedByMbpsMb.map(s => (
           <div className={styles.barRow} key={`eff-mb-${s.label}`}>
-            <span className={styles.barLabel}>{s.name}</span>
+            <span className={styles.barLabel} title={s.name}>{s.name}</span>
             <div className={styles.barTrack}>
               <div
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${(s.mbpsPerMb / maxMbpsMb) * 100}%`}}
               />
+              <span className={styles.barTooltip}>{fmt(s.mbpsPerMb, 1)} Mbps/MB</span>
             </div>
             <span className={styles.barValue}>{fmt(s.mbpsPerMb, 1)}</span>
           </div>
@@ -623,15 +660,17 @@ function EfficiencyChart({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.efficiency.perCpu', message: 'Mbps per CPU% (higher is better)'})}
+          <DirectionHint higher={true} />
         </div>
         {sortedByMbpsCpu.map(s => (
           <div className={styles.barRow} key={`eff-cpu-${s.label}`}>
-            <span className={styles.barLabel}>{s.name}</span>
+            <span className={styles.barLabel} title={s.name}>{s.name}</span>
             <div className={styles.barTrack}>
               <div
                 className={`${styles.barFill} ${groupBarClass(s.group)}`}
                 style={{width: `${(s.mbpsPerCpu / maxMbpsCpu) * 100}%`}}
               />
+              <span className={styles.barTooltip}>{fmt(s.mbpsPerCpu, 1)} Mbps/%</span>
             </div>
             <span className={styles.barValue}>{fmt(s.mbpsPerCpu, 1)}</span>
           </div>
@@ -670,15 +709,17 @@ function SecuritySection({scenarios}: {scenarios: Scenario[]}): ReactNode {
       <div className={styles.chartGroup}>
         <div className={styles.chartGroupTitle}>
           {translate({id: 'benchmarks.security.chart', message: 'Security Score (higher is better)'})}
+          <DirectionHint higher={true} />
         </div>
         {sorted.map(s => (
           <div className={styles.barRow} key={`sec-${s.label}`}>
-            <span className={styles.barLabel}>{s.name}</span>
+            <span className={styles.barLabel} title={s.name}>{s.name}</span>
             <div className={styles.barTrack}>
               <div
                 className={`${styles.barFill} ${scoreTierClass(s.security_tier)}`}
                 style={{width: `${(s.security_score / 100) * 100}%`}}
               />
+              <span className={styles.barTooltip}>{s.security_score}/100 ({s.security_tier})</span>
             </div>
             <span className={styles.barValue}>
               <span className={`${styles.tierBadge} ${tierClass(s.security_tier)}`} style={{width: '22px', height: '22px', fontSize: '0.75rem', marginRight: '4px'}}>

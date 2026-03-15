@@ -134,6 +134,9 @@ generate_configs() {
     SINGBOX_SS_PASS=$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | xxd -p -c 32)
     SINGBOX_SS2022_KEY=$(openssl rand -base64 16 2>/dev/null || head -c 16 /dev/urandom | base64)
     SINGBOX_HYSTERIA_PASS=$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | xxd -p -c 32)
+    # SS-2022 relay requires 32-byte base64 key (aes-256-gcm) — server:user format
+    SINGBOX_SS2022_RELAY_SERVER_KEY=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
+    SINGBOX_SS2022_RELAY_USER_KEY=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
 
     # --- Prisma QUIC ---------------------------------------------------
     cat > "$RESULTS_DIR/server-quic.toml" <<EOF
@@ -1064,6 +1067,226 @@ SBEOF
     "server_port": 38450,
     "uuid": "$SINGBOX_UUID",
     "password": "$SINGBOX_HYSTERIA_PASS",
+    "tls": {
+      "enabled": true,
+      "insecure": true
+    }
+  }]
+}
+SBEOF
+
+    # --- sing-box VMess + WS + TLS ------------------------------------
+    cat > "$RESULTS_DIR/singbox-vmess-ws-server.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "vmess",
+    "listen": "127.0.0.1",
+    "listen_port": 38451,
+    "users": [{"uuid": "$SINGBOX_UUID", "alterId": 0}],
+    "transport": {
+      "type": "ws",
+      "path": "/ws-tunnel"
+    },
+    "tls": {
+      "enabled": true,
+      "certificate_path": "$RESULTS_DIR/prisma-cert.pem",
+      "key_path": "$RESULTS_DIR/prisma-key.pem"
+    }
+  }],
+  "outbounds": [{"type": "direct"}]
+}
+SBEOF
+
+    cat > "$RESULTS_DIR/singbox-vmess-ws-client.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "socks",
+    "listen": "127.0.0.1",
+    "listen_port": 31088
+  }],
+  "outbounds": [{
+    "type": "vmess",
+    "server": "127.0.0.1",
+    "server_port": 38451,
+    "uuid": "$SINGBOX_UUID",
+    "security": "auto",
+    "alter_id": 0,
+    "transport": {
+      "type": "ws",
+      "path": "/ws-tunnel"
+    },
+    "tls": {
+      "enabled": true,
+      "insecure": true
+    }
+  }]
+}
+SBEOF
+
+    # --- sing-box Trojan + WS + TLS -----------------------------------
+    cat > "$RESULTS_DIR/singbox-trojan-ws-server.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "trojan",
+    "listen": "127.0.0.1",
+    "listen_port": 38452,
+    "users": [{"password": "$SINGBOX_SS_PASS"}],
+    "transport": {
+      "type": "ws",
+      "path": "/ws-tunnel"
+    },
+    "tls": {
+      "enabled": true,
+      "certificate_path": "$RESULTS_DIR/prisma-cert.pem",
+      "key_path": "$RESULTS_DIR/prisma-key.pem"
+    }
+  }],
+  "outbounds": [{"type": "direct"}]
+}
+SBEOF
+
+    cat > "$RESULTS_DIR/singbox-trojan-ws-client.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "socks",
+    "listen": "127.0.0.1",
+    "listen_port": 31089
+  }],
+  "outbounds": [{
+    "type": "trojan",
+    "server": "127.0.0.1",
+    "server_port": 38452,
+    "password": "$SINGBOX_SS_PASS",
+    "transport": {
+      "type": "ws",
+      "path": "/ws-tunnel"
+    },
+    "tls": {
+      "enabled": true,
+      "insecure": true
+    }
+  }]
+}
+SBEOF
+
+    # --- sing-box Shadowsocks-2022 Relay (aes-256-gcm) ----------------
+    cat > "$RESULTS_DIR/singbox-ss2022-relay-server.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "shadowsocks",
+    "listen": "127.0.0.1",
+    "listen_port": 38453,
+    "method": "2022-blake3-aes-256-gcm",
+    "password": "$SINGBOX_SS2022_RELAY_SERVER_KEY",
+    "users": [{"password": "$SINGBOX_SS2022_RELAY_USER_KEY"}]
+  }],
+  "outbounds": [{"type": "direct"}]
+}
+SBEOF
+
+    cat > "$RESULTS_DIR/singbox-ss2022-relay-client.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "socks",
+    "listen": "127.0.0.1",
+    "listen_port": 31090
+  }],
+  "outbounds": [{
+    "type": "shadowsocks",
+    "server": "127.0.0.1",
+    "server_port": 38453,
+    "method": "2022-blake3-aes-256-gcm",
+    "password": "${SINGBOX_SS2022_RELAY_SERVER_KEY}:${SINGBOX_SS2022_RELAY_USER_KEY}"
+  }]
+}
+SBEOF
+
+    # --- sing-box VLESS + gRPC + TLS ----------------------------------
+    cat > "$RESULTS_DIR/singbox-vless-grpc-server.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "vless",
+    "listen": "127.0.0.1",
+    "listen_port": 38454,
+    "users": [{"uuid": "$SINGBOX_UUID"}],
+    "transport": {
+      "type": "grpc",
+      "service_name": "tunnel"
+    },
+    "tls": {
+      "enabled": true,
+      "certificate_path": "$RESULTS_DIR/prisma-cert.pem",
+      "key_path": "$RESULTS_DIR/prisma-key.pem"
+    }
+  }],
+  "outbounds": [{"type": "direct"}]
+}
+SBEOF
+
+    cat > "$RESULTS_DIR/singbox-vless-grpc-client.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "socks",
+    "listen": "127.0.0.1",
+    "listen_port": 31091
+  }],
+  "outbounds": [{
+    "type": "vless",
+    "server": "127.0.0.1",
+    "server_port": 38454,
+    "uuid": "$SINGBOX_UUID",
+    "transport": {
+      "type": "grpc",
+      "service_name": "tunnel"
+    },
+    "tls": {
+      "enabled": true,
+      "insecure": true
+    }
+  }]
+}
+SBEOF
+
+    # --- sing-box VLESS + HTTP/2 + TLS --------------------------------
+    cat > "$RESULTS_DIR/singbox-vless-http2-server.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "vless",
+    "listen": "127.0.0.1",
+    "listen_port": 38455,
+    "users": [{"uuid": "$SINGBOX_UUID"}],
+    "transport": {
+      "type": "http",
+      "host": ["benchmark.local"],
+      "path": "/h2-tunnel"
+    },
+    "tls": {
+      "enabled": true,
+      "certificate_path": "$RESULTS_DIR/prisma-cert.pem",
+      "key_path": "$RESULTS_DIR/prisma-key.pem"
+    }
+  }],
+  "outbounds": [{"type": "direct"}]
+}
+SBEOF
+
+    cat > "$RESULTS_DIR/singbox-vless-http2-client.json" <<SBEOF
+{
+  "inbounds": [{
+    "type": "socks",
+    "listen": "127.0.0.1",
+    "listen_port": 31092
+  }],
+  "outbounds": [{
+    "type": "vless",
+    "server": "127.0.0.1",
+    "server_port": 38455,
+    "uuid": "$SINGBOX_UUID",
+    "transport": {
+      "type": "http",
+      "host": ["benchmark.local"],
+      "path": "/h2-tunnel"
+    },
     "tls": {
       "enabled": true,
       "insecure": true
@@ -2126,6 +2349,11 @@ scenarios = [
     ("singbox-vless-ws",    "sing-box VLESS+WS"),
     ("singbox-hysteria2",   "sing-box Hysteria2"),
     ("singbox-tuic",        "sing-box TUIC v5"),
+    ("singbox-vmess-ws",    "sing-box VMess+WS"),
+    ("singbox-trojan-ws",   "sing-box Trojan+WS"),
+    ("singbox-ss2022-relay","sing-box SS2022 Relay"),
+    ("singbox-vless-grpc",  "sing-box VLESS+gRPC"),
+    ("singbox-vless-http2", "sing-box VLESS+H2"),
 ]
 
 fields = [
@@ -2189,6 +2417,11 @@ SECURITY_DB = {
     "singbox-vless-ws":    {"enc": 5,  "fs": 7,  "tar": 1, "pdr": 3, "ar": 2,  "auth": 3},
     "singbox-hysteria2":   {"enc": 8,  "fs": 9,  "tar": 4, "pdr": 7, "ar": 7,  "auth": 7},
     "singbox-tuic":        {"enc": 8,  "fs": 9,  "tar": 3, "pdr": 6, "ar": 7,  "auth": 7},
+    "singbox-vmess-ws":    {"enc": 8,  "fs": 7,  "tar": 1, "pdr": 6, "ar": 3,  "auth": 5},
+    "singbox-trojan-ws":   {"enc": 7,  "fs": 7,  "tar": 1, "pdr": 6, "ar": 2,  "auth": 3},
+    "singbox-ss2022-relay":{"enc": 7,  "fs": 5,  "tar": 1, "pdr": 4, "ar": 5,  "auth": 6},
+    "singbox-vless-grpc":  {"enc": 3,  "fs": 7,  "tar": 1, "pdr": 5, "ar": 2,  "auth": 3},
+    "singbox-vless-http2": {"enc": 3,  "fs": 7,  "tar": 1, "pdr": 5, "ar": 2,  "auth": 3},
 }
 
 def compute_security_score(key):
@@ -2202,7 +2435,7 @@ def security_tier(score):
         return "S"
     if score >= 70:
         return "A"
-    if score >= 50:
+    if score >= 55:
         return "B"
     return "C"
 
@@ -2876,6 +3109,62 @@ main() {
         run_singbox_scenario "singbox-tuic" \
             "$RESULTS_DIR/singbox-tuic-server.json" \
             "$RESULTS_DIR/singbox-tuic-client.json" 38450 31087 udp
+    fi
+
+    if should_run_scenario "singbox-vmess-ws"; then
+        run_singbox_scenario "singbox-vmess-ws" \
+            "$RESULTS_DIR/singbox-vmess-ws-server.json" \
+            "$RESULTS_DIR/singbox-vmess-ws-client.json" 38451 31088
+    fi
+
+    if should_run_scenario "singbox-trojan-ws"; then
+        run_singbox_scenario "singbox-trojan-ws" \
+            "$RESULTS_DIR/singbox-trojan-ws-server.json" \
+            "$RESULTS_DIR/singbox-trojan-ws-client.json" 38452 31089
+    fi
+
+    if should_run_scenario "singbox-ss2022-relay"; then
+        run_singbox_scenario "singbox-ss2022-relay" \
+            "$RESULTS_DIR/singbox-ss2022-relay-server.json" \
+            "$RESULTS_DIR/singbox-ss2022-relay-client.json" 38453 31090
+    fi
+
+    if should_run_scenario "singbox-vless-grpc"; then
+        run_singbox_scenario "singbox-vless-grpc" \
+            "$RESULTS_DIR/singbox-vless-grpc-server.json" \
+            "$RESULTS_DIR/singbox-vless-grpc-client.json" 38454 31091
+    fi
+
+    if should_run_scenario "singbox-vless-http2"; then
+        run_singbox_scenario "singbox-vless-http2" \
+            "$RESULTS_DIR/singbox-vless-http2-server.json" \
+            "$RESULTS_DIR/singbox-vless-http2-client.json" 38455 31092
+    fi
+
+    # ── Check for silent failures ─────────────────────────────────
+    local fail_count=0
+    for result_file in "$RESULTS_DIR"/*.json; do
+        local fname
+        fname=$(basename "$result_file" .json)
+        [ "$fname" = "baseline" ] && continue
+        [ "$fname" = "summary" ] && continue
+        [[ "$fname" == *-server ]] && continue
+        [[ "$fname" == *-client ]] && continue
+        if python3 -c "
+import json, sys
+d = json.load(open('$result_file'))
+if d.get('download_mbps', 0) == 0:
+    print(f'  WARNING: {\"$fname\"} reported 0 Mbps download — possible silent failure')
+    sys.exit(1)
+" 2>/dev/null; then
+            : # ok
+        else
+            warn "Scenario '$fname' may have silently failed (0 Mbps download)"
+            fail_count=$((fail_count + 1))
+        fi
+    done
+    if [ "$fail_count" -gt 0 ]; then
+        warn "$fail_count scenario(s) reported 0 Mbps — check logs above for errors"
     fi
 
     # ── Results ───────────────────────────────────────────────────

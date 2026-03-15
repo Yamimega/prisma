@@ -1,75 +1,38 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use axum::extract::ws::{Message, WebSocket};
-use bytes::{Buf, BytesMut};
-use futures_util::stream::{SplitSink, SplitStream};
-use futures_util::{SinkExt, StreamExt};
+use bytes::{Buf, Bytes, BytesMut};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::sync::mpsc;
 
-/// Adapter that bridges an axum WebSocket (Stream/Sink) into AsyncRead + AsyncWrite.
+/// Generic adapter that bridges a pair of `mpsc` channels into `AsyncRead + AsyncWrite`.
 ///
-/// A background task splits the WebSocket into read/write halves and
-/// communicates via channels so the adapter is Send + Sync friendly.
-pub struct WsStream {
-    read_rx: mpsc::Receiver<bytes::Bytes>,
-    write_tx: mpsc::Sender<bytes::Bytes>,
+/// Used by XHTTP, XPorta, and other transport modes where upload and download
+/// data arrive on separate channels. The adapter buffers partial reads and
+/// applies backpressure on writes via `try_send` + waker-based retry.
+pub struct ChannelStream {
+    read_rx: mpsc::Receiver<Bytes>,
+    write_tx: mpsc::Sender<Bytes>,
     read_buf: BytesMut,
 }
 
-impl WsStream {
-    pub fn new(socket: WebSocket) -> Self {
-        let (ws_sink, ws_stream) = socket.split();
-        let (read_tx, read_rx) = mpsc::channel::<bytes::Bytes>(64);
-        let (write_tx, write_rx) = mpsc::channel::<bytes::Bytes>(64);
-
-        // Spawn read loop: WS → channel
-        tokio::spawn(Self::read_loop(ws_stream, read_tx));
-        // Spawn write loop: channel → WS
-        tokio::spawn(Self::write_loop(ws_sink, write_rx));
-
+impl ChannelStream {
+    pub fn new(read_rx: mpsc::Receiver<Bytes>, write_tx: mpsc::Sender<Bytes>) -> Self {
         Self {
             read_rx,
             write_tx,
             read_buf: BytesMut::new(),
         }
     }
-
-    async fn read_loop(mut ws_stream: SplitStream<WebSocket>, tx: mpsc::Sender<bytes::Bytes>) {
-        while let Some(Ok(msg)) = ws_stream.next().await {
-            match msg {
-                Message::Binary(data) => {
-                    if tx.send(data).await.is_err() {
-                        break;
-                    }
-                }
-                Message::Close(_) => break,
-                _ => {} // Ignore text, ping, pong
-            }
-        }
-    }
-
-    async fn write_loop(
-        mut ws_sink: SplitSink<WebSocket, Message>,
-        mut rx: mpsc::Receiver<bytes::Bytes>,
-    ) {
-        while let Some(data) = rx.recv().await {
-            if ws_sink.send(Message::Binary(data)).await.is_err() {
-                break;
-            }
-        }
-        let _ = ws_sink.close().await;
-    }
 }
 
-impl AsyncRead for WsStream {
+impl AsyncRead for ChannelStream {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
-        // Drain buffered data first
+        // Drain internal buffer first
         if !self.read_buf.is_empty() {
             let to_copy = self.read_buf.len().min(buf.remaining());
             buf.put_slice(&self.read_buf[..to_copy]);
@@ -77,7 +40,7 @@ impl AsyncRead for WsStream {
             return Poll::Ready(Ok(()));
         }
 
-        // Try to receive from channel
+        // Try to receive more data from the channel
         match self.read_rx.poll_recv(cx) {
             Poll::Ready(Some(data)) => {
                 let to_copy = data.len().min(buf.remaining());
@@ -93,19 +56,19 @@ impl AsyncRead for WsStream {
     }
 }
 
-impl AsyncWrite for WsStream {
+impl AsyncWrite for ChannelStream {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        match self.write_tx.try_send(bytes::Bytes::copy_from_slice(buf)) {
+        match self.write_tx.try_send(Bytes::copy_from_slice(buf)) {
             Ok(()) => Poll::Ready(Ok(buf.len())),
             Err(mpsc::error::TrySendError::Full(_)) => {
                 // Channel full. Spawn a waiter that wakes us when capacity is available.
                 // The spawned task acquires then immediately drops a permit (freeing the
                 // slot), then wakes us so our next try_send succeeds. Data is only ever
-                // sent via try_send above — never in the spawned task — preventing duplication.
+                // sent via try_send above -- never in the spawned task -- preventing duplication.
                 let tx = self.write_tx.clone();
                 let waker = cx.waker().clone();
                 tokio::spawn(async move {
@@ -118,7 +81,7 @@ impl AsyncWrite for WsStream {
             }
             Err(mpsc::error::TrySendError::Closed(_)) => Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::BrokenPipe,
-                "WebSocket closed",
+                "channel closed",
             ))),
         }
     }

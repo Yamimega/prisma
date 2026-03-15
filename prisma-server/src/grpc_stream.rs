@@ -103,11 +103,16 @@ impl AsyncWrite for GrpcStream {
         match self.write_tx.try_send(bytes::Bytes::copy_from_slice(buf)) {
             Ok(()) => Poll::Ready(Ok(buf.len())),
             Err(mpsc::error::TrySendError::Full(_)) => {
+                // Channel full. Spawn a waiter that wakes us when capacity is available.
+                // The spawned task acquires then immediately drops a permit (freeing the
+                // slot), then wakes us so our next try_send succeeds. Data is only ever
+                // sent via try_send above -- never in the spawned task -- preventing duplication.
                 let tx = self.write_tx.clone();
-                let data = bytes::Bytes::copy_from_slice(buf);
                 let waker = cx.waker().clone();
                 tokio::spawn(async move {
-                    let _ = tx.send(data).await;
+                    if let Ok(permit) = tx.reserve_owned().await {
+                        drop(permit);
+                    }
                     waker.wake();
                 });
                 Poll::Pending
