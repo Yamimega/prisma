@@ -19,7 +19,12 @@ const WIRE_OVERHEAD: usize = 2 + NONCE_SIZE + 2 + TAG_SIZE;
 ///
 /// Accounts for frame header and max possible padding so that the
 /// resulting wire frame never exceeds `MAX_FRAME_SIZE`.
-pub const MAX_PAYLOAD_SIZE: usize = MAX_FRAME_SIZE - NONCE_SIZE - 2 - TAG_SIZE - PADDED_HEADER_SIZE - crate::types::MAX_PADDING_SIZE;
+pub const MAX_PAYLOAD_SIZE: usize = MAX_FRAME_SIZE
+    - NONCE_SIZE
+    - 2
+    - TAG_SIZE
+    - PADDED_HEADER_SIZE
+    - crate::types::MAX_PADDING_SIZE;
 
 /// Pre-allocated frame encoder for the send (encrypt) direction.
 ///
@@ -73,19 +78,20 @@ impl FrameEncoder {
         let nonce_start = 2;
         let inner_len_start = nonce_start + NONCE_SIZE; // 14
         let plaintext_start = inner_len_start + 2; // 16
-        let header_start = plaintext_start;
 
         // Write frame header at the correct position
-        self.buf[header_start] = CMD_DATA;
-        self.buf[header_start + 1..header_start + 3].copy_from_slice(&FLAG_PADDED.to_le_bytes());
-        self.buf[header_start + 3..header_start + 7].copy_from_slice(&stream_id.to_be_bytes());
-        self.buf[header_start + 7..header_start + 9]
+        self.buf[plaintext_start] = CMD_DATA;
+        self.buf[plaintext_start + 1..plaintext_start + 3]
+            .copy_from_slice(&FLAG_PADDED.to_le_bytes());
+        self.buf[plaintext_start + 3..plaintext_start + 7]
+            .copy_from_slice(&stream_id.to_be_bytes());
+        self.buf[plaintext_start + 7..plaintext_start + 9]
             .copy_from_slice(&(payload_len as u16).to_be_bytes());
 
-        // Payload is already at position header_start + 9 (written by caller via payload_mut)
+        // Payload is already at position plaintext_start + 9 (written by caller via payload_mut)
 
         // Zero-fill padding (Phase 4: no RNG needed, encrypted anyway)
-        let pad_start = header_start + PADDED_HEADER_SIZE + payload_len;
+        let pad_start = plaintext_start + PADDED_HEADER_SIZE + payload_len;
         self.buf[pad_start..pad_start + pad_len].fill(0);
 
         let plaintext_end = plaintext_start + plaintext_len;

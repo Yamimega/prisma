@@ -60,7 +60,6 @@ pub async fn relay(socks_stream: TcpStream, tunnel: TunnelConnection) -> Result<
     };
 
     // tunnel → SOCKS5: decrypt frames, send raw data
-    let cipher_t2s = cipher.clone();
     let tunnel_to_socks = async move {
         let mut frame_buf = vec![0u8; MAX_FRAME_SIZE];
         loop {
@@ -85,7 +84,7 @@ pub async fn relay(socks_stream: TcpStream, tunnel: TunnelConnection) -> Result<
             match FrameDecoder::unseal_data_frame(
                 &mut frame_buf[..frame_len],
                 frame_len,
-                cipher_t2s.as_ref(),
+                cipher.as_ref(),
             ) {
                 Ok((cmd, payload, _nonce)) => match cmd {
                     CMD_DATA => {

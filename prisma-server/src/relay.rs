@@ -177,8 +177,6 @@ where
         }
     });
 
-    let cipher_d2t = cipher.clone();
-
     // destination → tunnel (download direction)
     // This task has exclusive ownership of tunnel_write (no mutex needed).
     let dest_to_tunnel = tokio::spawn(async move {
@@ -200,7 +198,7 @@ where
                             // Copy payload into encoder buffer and seal in-place
                             encoder.payload_mut()[..n].copy_from_slice(&buf[..n]);
                             match encoder.seal_data_frame(
-                                cipher_d2t.as_ref(),
+                                cipher.as_ref(),
                                 &nonce,
                                 n,
                                 0,
