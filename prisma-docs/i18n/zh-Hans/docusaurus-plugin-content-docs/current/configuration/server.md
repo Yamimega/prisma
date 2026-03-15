@@ -25,10 +25,13 @@ sidebar_position: 1
 | `port_forwarding.port_range_start` | u16 | `1024` | 允许转发的最小端口号 |
 | `port_forwarding.port_range_end` | u16 | `65535` | 允许转发的最大端口号 |
 | `management_api.enabled` | bool | `false` | 启用管理 REST/WS API |
-| `management_api.listen_addr` | string | `"127.0.0.1:9090"` | 管理 API 绑定地址 |
+| `management_api.listen_addr` | string | `"0.0.0.0:9090"` | 管理 API 绑定地址 |
 | `management_api.auth_token` | string | — | API 认证的 Bearer 令牌 |
 | `management_api.cors_origins` | string[] | `[]` | 允许的 CORS 来源（用于外部仪表盘开发） |
 | `management_api.dashboard_dir` | string? | — | 已构建仪表盘静态文件路径 |
+| `management_api.tls.cert_path` | string? | — | 管理 API 的 TLS 证书路径（未设置时继承 `[tls]` 配置） |
+| `management_api.tls.key_path` | string? | — | 管理 API 的 TLS 私钥路径（未设置时继承 `[tls]` 配置） |
+| `management_api.tls_enabled` | bool | `true` | 启用管理 API 的 TLS（自动继承服务器 `[tls]` 配置） |
 | `padding.min` | u16 | `0` | 每帧最小填充字节数 |
 | `padding.max` | u16 | `256` | 每帧最大填充字节数 |
 | `camouflage.enabled` | bool | `false` | 启用伪装（抗主动探测） |

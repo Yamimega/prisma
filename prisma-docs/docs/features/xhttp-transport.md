@@ -14,7 +14,7 @@ Client sends PrismaVeil frames as individual HTTP POST requests to the upload en
 
 ```
 Client ──POST /api/v1/upload──▶ Server (upload chunks)
-Client ◀──GET /api/v1/events─── Server (download stream)
+Client ◀──GET /api/v1/pull─── Server (download stream)
 ```
 
 Best for: environments with aggressive HTTP timeouts or proxies that buffer request bodies.
@@ -52,7 +52,7 @@ listen_addr = "0.0.0.0:443"
 
 # XHTTP endpoints (these are the default paths)
 xhttp_upload_path = "/api/v1/upload"
-xhttp_download_path = "/api/v1/events"
+xhttp_download_path = "/api/v1/pull"
 xhttp_stream_path = "/api/v1/stream"
 
 # Optional: wrap download in SSE format for better CDN compatibility
@@ -78,7 +78,7 @@ xhttp_stream_url = "https://your-domain.com/api/v1/stream"
 # For packet-up or stream-up mode:
 # xhttp_mode = "packet-up"
 # xhttp_upload_url = "https://your-domain.com/api/v1/upload"
-# xhttp_download_url = "https://your-domain.com/api/v1/events"
+# xhttp_download_url = "https://your-domain.com/api/v1/pull"
 
 # Header obfuscation
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"

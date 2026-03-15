@@ -2,13 +2,13 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::response::Response;
 
-use prisma_core::state::ServerState;
+use crate::MgmtState;
 
-pub async fn ws_logs(ws: WebSocketUpgrade, State(state): State<ServerState>) -> Response {
+pub async fn ws_logs(ws: WebSocketUpgrade, State(state): State<MgmtState>) -> Response {
     ws.on_upgrade(move |socket| handle_logs_ws(socket, state))
 }
 
-async fn handle_logs_ws(mut socket: WebSocket, state: ServerState) {
+async fn handle_logs_ws(mut socket: WebSocket, state: MgmtState) {
     let mut rx = state.log_tx.subscribe();
     let mut level_filter: Option<String> = None;
     let mut target_filter: Option<String> = None;

@@ -72,4 +72,49 @@ export const api = {
     }),
   deleteRoute: (id: string) =>
     apiFetch<void>(`/api/routes/${id}`, { method: "DELETE" }),
+
+  // System
+  getSystemInfo: () =>
+    apiFetch<import("./types").SystemInfoResponse>("/api/system/info"),
+
+  // Bandwidth
+  getClientBandwidth: (id: string) =>
+    apiFetch<import("./types").ClientBandwidthInfo>(`/api/clients/${id}/bandwidth`),
+  updateClientBandwidth: (id: string, data: { upload_bps?: number; download_bps?: number }) =>
+    apiFetch<import("./types").ClientBandwidthInfo>(`/api/clients/${id}/bandwidth`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  getClientQuota: (id: string) =>
+    apiFetch<import("./types").ClientQuotaInfo>(`/api/clients/${id}/quota`),
+  updateClientQuota: (id: string, data: { quota_bytes?: number }) =>
+    apiFetch<void>(`/api/clients/${id}/quota`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  getBandwidthSummary: () =>
+    apiFetch<import("./types").BandwidthSummary>("/api/bandwidth/summary"),
+
+  // Backups
+  listBackups: () =>
+    apiFetch<import("./types").BackupInfo[]>("/api/config/backups"),
+  createBackup: () =>
+    apiFetch<import("./types").BackupInfo>("/api/config/backup", { method: "POST" }),
+  getBackup: (name: string) =>
+    apiFetch<string>(`/api/config/backups/${encodeURIComponent(name)}`),
+  restoreBackup: (name: string) =>
+    apiFetch<void>(`/api/config/backups/${encodeURIComponent(name)}/restore`, { method: "POST" }),
+  deleteBackup: (name: string) =>
+    apiFetch<void>(`/api/config/backups/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  diffBackup: (name: string) =>
+    apiFetch<import("./types").BackupDiff>(`/api/config/backups/${encodeURIComponent(name)}/diff`),
+
+  // Alerts
+  getAlertConfig: () =>
+    apiFetch<import("./types").AlertConfig>("/api/alerts/config"),
+  updateAlertConfig: (data: import("./types").AlertConfig) =>
+    apiFetch<import("./types").AlertConfig>("/api/alerts/config", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 };

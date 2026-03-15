@@ -92,6 +92,11 @@ mermaid: {
           label: 'Docs',
         },
         {
+          to: '/benchmarks',
+          label: 'Benchmarks',
+          position: 'left',
+        },
+        {
           type: 'docsVersionDropdown',
           position: 'right',
         },

@@ -1,6 +1,9 @@
+mod dashboard;
 mod init;
 mod status;
 mod validate;
+
+use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 
@@ -66,7 +69,7 @@ enum Commands {
     /// Query management API for server status
     Status {
         /// Management API URL
-        #[arg(short, long, default_value = "http://127.0.0.1:9090")]
+        #[arg(short, long, default_value = "https://127.0.0.1:9090")]
         url: String,
         /// Auth token for management API
         #[arg(short, long, default_value = "")]
@@ -89,6 +92,27 @@ enum Commands {
     },
     /// Show version, protocol version, supported ciphers and transports
     Version,
+    /// Launch the web dashboard (auto-downloads UI, proxies management API)
+    Dashboard {
+        /// Management API URL to proxy requests to
+        #[arg(long, default_value = "https://127.0.0.1:9090")]
+        mgmt_url: String,
+        /// Auth token for management API
+        #[arg(long)]
+        token: Option<String>,
+        /// Port to serve the dashboard on
+        #[arg(long, default_value = "9091")]
+        port: u16,
+        /// Address to bind the dashboard server to
+        #[arg(long, default_value = "0.0.0.0")]
+        bind: String,
+        /// Don't auto-open browser
+        #[arg(long)]
+        no_open: bool,
+        /// Force re-download of dashboard assets
+        #[arg(long)]
+        update: bool,
+    },
 }
 
 #[tokio::main]
@@ -101,10 +125,12 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Server { config } => {
-            prisma_server::run(&config).await?;
+            let path = resolve_config(&config, "server.toml");
+            prisma_server::run(path.to_str().unwrap()).await?;
         }
         Commands::Client { config } => {
-            prisma_client::run(&config).await?;
+            let path = resolve_config(&config, "client.toml");
+            prisma_client::run(path.to_str().unwrap()).await?;
         }
         Commands::GenKey => {
             gen_key();
@@ -137,9 +163,83 @@ async fn main() -> anyhow::Result<()> {
         Commands::Version => {
             print_version();
         }
+        Commands::Dashboard {
+            mgmt_url,
+            token,
+            port,
+            bind,
+            no_open,
+            update,
+        } => {
+            dashboard::run_dashboard(mgmt_url, token, port, bind, no_open, update).await?;
+        }
     }
 
     Ok(())
+}
+
+/// Resolve config file path. If the given path exists, use it directly.
+/// Otherwise search standard locations: /etc/prisma/, ~/.config/prisma/.
+fn resolve_config(given: &str, default_name: &str) -> PathBuf {
+    let given_path = Path::new(given);
+    if given_path.exists() {
+        return given_path.to_path_buf();
+    }
+
+    // Only search fallback locations when the user didn't provide an explicit path
+    // (i.e. they're using the clap default value).
+    if given == default_name {
+        let candidates: Vec<PathBuf> = if cfg!(windows) {
+            // %PROGRAMDATA%\prisma\ and %USERPROFILE%\.config\prisma\
+            let mut v = Vec::new();
+            if let Ok(pd) = std::env::var("PROGRAMDATA") {
+                v.push(PathBuf::from(pd).join("prisma").join(default_name));
+            }
+            if let Ok(home) = std::env::var("USERPROFILE") {
+                v.push(
+                    PathBuf::from(home)
+                        .join(".config")
+                        .join("prisma")
+                        .join(default_name),
+                );
+            }
+            v
+        } else {
+            let mut v = vec![PathBuf::from("/etc/prisma").join(default_name)];
+            if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+                v.push(PathBuf::from(xdg).join("prisma").join(default_name));
+            } else if let Ok(home) = std::env::var("HOME") {
+                v.push(
+                    PathBuf::from(home)
+                        .join(".config")
+                        .join("prisma")
+                        .join(default_name),
+                );
+            }
+            v
+        };
+
+        for candidate in &candidates {
+            if candidate.exists() {
+                eprintln!("Using config: {}", candidate.display());
+                return candidate.clone();
+            }
+        }
+
+        // Nothing found — print helpful message and fall through to the default
+        eprintln!(
+            "Config file '{}' not found in current directory or standard locations:",
+            default_name
+        );
+        eprintln!("  - ./{}", default_name);
+        for c in &candidates {
+            eprintln!("  - {}", c.display());
+        }
+        eprintln!();
+        eprintln!("Run 'prisma init' to generate config files, or pass --config <path>.");
+    }
+
+    given_path.to_path_buf()
 }
 
 fn gen_key() {

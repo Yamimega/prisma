@@ -9,13 +9,15 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::{ServeDir, ServeFile};
 
 use prisma_core::config::server::ManagementApiConfig;
-use prisma_core::state::ServerState;
 
 use crate::auth::{auth_middleware, AuthToken};
-use crate::handlers::{clients, config, connections, forwards, health, routes};
+use crate::handlers::{
+    alerts, backup, bandwidth, clients, config, connections, forwards, health, routes, system,
+};
 use crate::ws::{logs, metrics};
+use crate::MgmtState;
 
-pub fn build_router(config: ManagementApiConfig, state: ServerState) -> Router {
+pub fn build_router(config: ManagementApiConfig, state: MgmtState) -> Router {
     let cors = if config.cors_origins.is_empty() {
         CorsLayer::new()
             .allow_origin(Any)
@@ -40,6 +42,8 @@ pub fn build_router(config: ManagementApiConfig, state: ServerState) -> Router {
         .route("/api/health", get(health::health))
         .route("/api/metrics", get(health::metrics))
         .route("/api/metrics/history", get(health::metrics_history))
+        // System info
+        .route("/api/system/info", get(system::get_system_info))
         // Connections
         .route("/api/connections", get(connections::list))
         .route("/api/connections/{id}", delete(connections::disconnect))
@@ -48,10 +52,35 @@ pub fn build_router(config: ManagementApiConfig, state: ServerState) -> Router {
         .route("/api/clients", post(clients::create))
         .route("/api/clients/{id}", put(clients::update))
         .route("/api/clients/{id}", delete(clients::remove))
+        // Bandwidth & quotas
+        .route(
+            "/api/clients/{id}/bandwidth",
+            get(bandwidth::get_client_bandwidth).put(bandwidth::update_client_bandwidth),
+        )
+        .route(
+            "/api/clients/{id}/quota",
+            get(bandwidth::get_client_quota).put(bandwidth::update_client_quota),
+        )
+        .route(
+            "/api/bandwidth/summary",
+            get(bandwidth::get_bandwidth_summary),
+        )
         // Config
         .route("/api/config", get(config::get_config))
         .route("/api/config", axum::routing::patch(config::patch_config))
         .route("/api/config/tls", get(config::get_tls_info))
+        // Config backups
+        .route("/api/config/backups", get(backup::list_backups))
+        .route("/api/config/backup", post(backup::create_backup))
+        .route(
+            "/api/config/backups/{name}",
+            get(backup::get_backup).delete(backup::delete_backup),
+        )
+        .route(
+            "/api/config/backups/{name}/restore",
+            post(backup::restore_backup),
+        )
+        .route("/api/config/backups/{name}/diff", get(backup::diff_backup))
         // Forwards
         .route("/api/forwards", get(forwards::list))
         // Routes
@@ -59,6 +88,11 @@ pub fn build_router(config: ManagementApiConfig, state: ServerState) -> Router {
         .route("/api/routes", post(routes::create))
         .route("/api/routes/{id}", put(routes::update))
         .route("/api/routes/{id}", delete(routes::remove))
+        // Alerts
+        .route(
+            "/api/alerts/config",
+            get(alerts::get_alert_config).put(alerts::update_alert_config),
+        )
         // WebSocket
         .route("/api/ws/metrics", get(metrics::ws_metrics))
         .route("/api/ws/logs", get(logs::ws_logs))

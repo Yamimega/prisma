@@ -5,7 +5,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use prisma_core::config::server::{RoutingRule, RuleAction, RuleCondition};
-use prisma_core::state::ServerState;
+
+use crate::MgmtState;
 
 #[derive(Deserialize)]
 pub struct CreateRouteRequest {
@@ -21,13 +22,13 @@ fn default_true() -> bool {
     true
 }
 
-pub async fn list(State(state): State<ServerState>) -> Json<Vec<RoutingRule>> {
+pub async fn list(State(state): State<MgmtState>) -> Json<Vec<RoutingRule>> {
     let rules = state.routing_rules.read().await;
     Json(rules.clone())
 }
 
 pub async fn create(
-    State(state): State<ServerState>,
+    State(state): State<MgmtState>,
     Json(req): Json<CreateRouteRequest>,
 ) -> Result<Json<RoutingRule>, StatusCode> {
     let rule = RoutingRule {
@@ -39,13 +40,13 @@ pub async fn create(
         enabled: req.enabled,
     };
 
-    let response = rule.clone();
+    let json = Json(rule.clone());
     state.routing_rules.write().await.push(rule);
-    Ok(Json(response))
+    Ok(json)
 }
 
 pub async fn update(
-    State(state): State<ServerState>,
+    State(state): State<MgmtState>,
     Path(id): Path<Uuid>,
     Json(req): Json<CreateRouteRequest>,
 ) -> StatusCode {
@@ -62,7 +63,7 @@ pub async fn update(
     }
 }
 
-pub async fn remove(State(state): State<ServerState>, Path(id): Path<Uuid>) -> StatusCode {
+pub async fn remove(State(state): State<MgmtState>, Path(id): Path<Uuid>) -> StatusCode {
     let mut rules = state.routing_rules.write().await;
     let len_before = rules.len();
     rules.retain(|r| r.id != id);

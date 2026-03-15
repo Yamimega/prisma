@@ -195,7 +195,7 @@ key_path = "origin-key.pem"
 
 [management_api]
 enabled = true
-listen_addr = "127.0.0.1:9090"
+listen_addr = "0.0.0.0:9090"
 auth_token = "YOUR-SECURE-TOKEN"
 ```
 
@@ -371,7 +371,7 @@ encoding = "json"
 
 [management_api]
 enabled = true
-listen_addr = "127.0.0.1:9090"
+listen_addr = "0.0.0.0:9090"
 auth_token = "YOUR-SECURE-TOKEN"
 ```
 
@@ -585,7 +585,7 @@ ws_tunnel_path = "/ws-tunnel"
 grpc_tunnel_path = "/tunnel.PrismaTunnel"
 xhttp_stream_path = "/api/v1/stream"
 xhttp_upload_path = "/api/v1/upload"
-xhttp_download_path = "/api/v1/events"
+xhttp_download_path = "/api/v1/pull"
 xhttp_mode = "stream-one"
 cover_upstream = "http://127.0.0.1:3000"
 response_server_header = "nginx"
@@ -616,7 +616,7 @@ encoding = "json"
 
 [management_api]
 enabled = true
-listen_addr = "127.0.0.1:9090"
+listen_addr = "0.0.0.0:9090"
 auth_token = "YOUR-SECURE-TOKEN"
 dashboard_dir = "/opt/prisma/dashboard"
 

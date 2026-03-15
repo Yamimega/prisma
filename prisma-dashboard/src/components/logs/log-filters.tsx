@@ -3,10 +3,17 @@
 import { useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { LOG_LEVELS } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 interface LogFiltersProps {
-  onFilterChange: (filter: { level?: string; target?: string }) => void;
+  onFilterChange: (filter: {
+    level?: string;
+    target?: string;
+    messageSearch?: string;
+    messageSearchRegex?: boolean;
+  }) => void;
 }
 
 // Display order: most severe first
@@ -21,13 +28,16 @@ const levelColors: Record<string, string> = {
 };
 
 export function LogFilters({ onFilterChange }: LogFiltersProps) {
+  const { t } = useI18n();
   const [selectedLevels, setSelectedLevels] = useState<Set<string>>(
     new Set(levels)
   );
   const [target, setTarget] = useState("");
+  const [messageSearch, setMessageSearch] = useState("");
+  const [useRegex, setUseRegex] = useState(false);
 
   const emitFilter = useCallback(
-    (nextLevels: Set<string>, nextTarget: string) => {
+    (nextLevels: Set<string>, nextTarget: string, nextMessage: string, nextRegex: boolean) => {
       const allSelected = nextLevels.size === LOG_LEVELS.length;
       // Find the most verbose selected level to use as the minimum filter.
       let minLevel: string | undefined;
@@ -42,6 +52,8 @@ export function LogFilters({ onFilterChange }: LogFiltersProps) {
       onFilterChange({
         level: minLevel ?? "",
         target: nextTarget || "",
+        messageSearch: nextMessage || "",
+        messageSearchRegex: nextRegex,
       });
     },
     [onFilterChange]
@@ -55,20 +67,31 @@ export function LogFilters({ onFilterChange }: LogFiltersProps) {
       } else {
         next.add(level);
       }
-      emitFilter(next, target);
+      emitFilter(next, target, messageSearch, useRegex);
       return next;
     });
   }
 
   function handleTargetChange(value: string) {
     setTarget(value);
-    emitFilter(selectedLevels, value);
+    emitFilter(selectedLevels, value, messageSearch, useRegex);
+  }
+
+  function handleMessageSearchChange(value: string) {
+    setMessageSearch(value);
+    emitFilter(selectedLevels, target, value, useRegex);
+  }
+
+  function handleRegexToggle() {
+    const nextRegex = !useRegex;
+    setUseRegex(nextRegex);
+    emitFilter(selectedLevels, target, messageSearch, nextRegex);
   }
 
   return (
     <div className="flex flex-wrap items-end gap-4">
       <div className="space-y-1.5">
-        <Label>Log Levels</Label>
+        <Label>{t("logs.level")}</Label>
         <div className="flex gap-1.5">
           {levels.map((level) => {
             const isActive = selectedLevels.has(level);
@@ -89,7 +112,7 @@ export function LogFilters({ onFilterChange }: LogFiltersProps) {
         </div>
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="target-filter">Target</Label>
+        <Label htmlFor="target-filter">{t("logs.target")}</Label>
         <Input
           id="target-filter"
           type="text"
@@ -98,6 +121,28 @@ export function LogFilters({ onFilterChange }: LogFiltersProps) {
           onChange={(e) => handleTargetChange(e.target.value)}
           className="w-48"
         />
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="message-search">{t("logs.message")}</Label>
+        <div className="flex gap-1.5">
+          <Input
+            id="message-search"
+            type="text"
+            placeholder={t("logs.search")}
+            value={messageSearch}
+            onChange={(e) => handleMessageSearchChange(e.target.value)}
+            className="w-56"
+          />
+          <Button
+            variant={useRegex ? "default" : "outline"}
+            size="default"
+            onClick={handleRegexToggle}
+            title="Toggle regex matching"
+            className="font-mono text-xs px-2"
+          >
+            .*
+          </Button>
+        </div>
       </div>
     </div>
   );

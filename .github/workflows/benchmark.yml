@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 4 * * 1'  # Weekly Monday 4am UTC
 
+permissions:
+  contents: write
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
@@ -40,6 +43,161 @@ jobs:
         with:
           name: benchmark-results-${{ github.run_number }}
           path: benchmark-results/
+
+      - name: Consolidate benchmark results
+        run: |
+          python3 << 'PYEOF'
+          import json, glob, os, sys
+          from datetime import datetime, timezone
+
+          SECURITY_WEIGHTS = {
+              "enc": 0.25,
+              "fs": 0.20,
+              "tar": 0.20,
+              "pdr": 0.15,
+              "ar": 0.10,
+              "auth": 0.10,
+          }
+
+          SECURITY_DB = {
+              "prisma-quic":     {"enc": 10, "fs": 10, "tar": 3, "pdr": 8, "ar": 10, "auth": 10},
+              "prisma-tcp":      {"enc": 10, "fs": 10, "tar": 3, "pdr": 7, "ar": 10, "auth": 10},
+              "prisma-shaped":   {"enc": 10, "fs": 10, "tar": 6, "pdr": 8, "ar": 10, "auth": 10},
+              "prisma-quic-aes": {"enc": 10, "fs": 10, "tar": 3, "pdr": 8, "ar": 10, "auth": 10},
+              "prisma-tonly":    {"enc": 5,  "fs": 8,  "tar": 2, "pdr": 6, "ar": 8,  "auth": 8},
+              "prisma-ws":       {"enc": 10, "fs": 10, "tar": 2, "pdr": 7, "ar": 10, "auth": 10},
+              "prisma-bucket":   {"enc": 10, "fs": 10, "tar": 5, "pdr": 8, "ar": 10, "auth": 10},
+              "xray-vless-tls":  {"enc": 7,  "fs": 7,  "tar": 1, "pdr": 5, "ar": 3,  "auth": 3},
+              "xray-vless-xtls": {"enc": 3,  "fs": 7,  "tar": 1, "pdr": 6, "ar": 3,  "auth": 3},
+              "xray-vmess-tls":  {"enc": 8,  "fs": 7,  "tar": 1, "pdr": 5, "ar": 3,  "auth": 5},
+              "xray-trojan-tls": {"enc": 7,  "fs": 7,  "tar": 1, "pdr": 5, "ar": 2,  "auth": 3},
+              "xray-ss-aead":    {"enc": 6,  "fs": 3,  "tar": 1, "pdr": 3, "ar": 3,  "auth": 5},
+              "xray-ss2022":     {"enc": 6,  "fs": 4,  "tar": 1, "pdr": 3, "ar": 4,  "auth": 5},
+              "xray-vless-ws":   {"enc": 5,  "fs": 7,  "tar": 1, "pdr": 3, "ar": 2,  "auth": 3},
+              "xray-vless-grpc": {"enc": 3,  "fs": 7,  "tar": 1, "pdr": 5, "ar": 2,  "auth": 3},
+          }
+
+          SCENARIO_NAMES = {
+              "baseline":         ("Baseline (no proxy)", "baseline"),
+              "prisma-quic":      ("Prisma QUIC",         "prisma"),
+              "prisma-tcp":       ("Prisma TCP+TLS",      "prisma"),
+              "prisma-shaped":    ("Prisma (shaped)",      "prisma"),
+              "prisma-quic-aes":  ("Prisma QUIC AES",     "prisma"),
+              "prisma-tonly":     ("Prisma T-Only",        "prisma"),
+              "prisma-ws":        ("Prisma WS+TLS",        "prisma"),
+              "prisma-bucket":    ("Prisma (bucket)",      "prisma"),
+              "xray-vless-tls":   ("Xray VLESS+TLS",      "xray"),
+              "xray-vless-xtls":  ("Xray VLESS+XTLS",     "xray"),
+              "xray-vmess-tls":   ("Xray VMess+TLS",      "xray"),
+              "xray-trojan-tls":  ("Xray Trojan+TLS",     "xray"),
+              "xray-ss-aead":     ("Xray SS AEAD",        "xray"),
+              "xray-ss2022":      ("Xray SS-2022",        "xray"),
+              "xray-vless-ws":    ("Xray VLESS+WS",       "xray"),
+              "xray-vless-grpc":  ("Xray VLESS+gRPC",     "xray"),
+          }
+
+          def compute_security_score(key):
+              dims = SECURITY_DB.get(key)
+              if not dims:
+                  return 0
+              return round(sum(dims[d] * SECURITY_WEIGHTS[d] for d in SECURITY_WEIGHTS) * 10)
+
+          def security_tier(score):
+              if score >= 85:
+                  return "S"
+              if score >= 70:
+                  return "A"
+              if score >= 55:
+                  return "B"
+              return "C"
+
+          # Read all per-scenario JSON files
+          result_files = sorted(glob.glob("benchmark-results/*.json"))
+          scenarios = []
+
+          for fpath in result_files:
+              fname = os.path.basename(fpath).replace(".json", "")
+              if fname == "summary":
+                  continue
+              try:
+                  with open(fpath) as f:
+                      raw = json.load(f)
+              except (json.JSONDecodeError, IOError):
+                  continue
+
+              label = raw.get("label", fname)
+              name_info = SCENARIO_NAMES.get(label, (label, "baseline"))
+              name, group = name_info
+
+              sec_score = compute_security_score(label)
+              sec_tier = security_tier(sec_score) if group != "baseline" else "-"
+              if group == "baseline":
+                  sec_score = 0
+
+              scenario = {
+                  "label": label,
+                  "name": name,
+                  "group": group,
+                  "download_mbps": float(raw.get("download_mbps", 0)),
+                  "upload_mbps": float(raw.get("upload_mbps", 0)),
+                  "latency_ms": float(raw.get("latency_ms", 0)),
+                  "handshake_ms": float(raw.get("handshake_ms", 0)),
+                  "concurrent_mbps": float(raw.get("concurrent_mbps", 0)),
+                  "memory_idle_kb": int(raw.get("memory_idle_kb", 0)),
+                  "memory_load_kb": int(raw.get("memory_load_kb", 0)),
+                  "cpu_avg_pct": float(raw.get("cpu_avg_pct", 0)),
+                  "download_cv_pct": float(raw.get("download_cv_pct", 0)),
+                  "concurrent_cv_pct": float(raw.get("concurrent_cv_pct", 0)),
+                  "security_score": sec_score,
+                  "security_tier": sec_tier,
+              }
+              scenarios.append(scenario)
+
+          if not scenarios:
+              print("No benchmark result files found, skipping consolidation")
+              sys.exit(0)
+
+          consolidated = {
+              "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "environment": "ubuntu-latest, loopback, 256MB payload, 5-run median",
+              "scenarios": scenarios,
+              "history": [],
+          }
+
+          # Read existing data to preserve history
+          output_path = "prisma-docs/static/data/benchmark-results.json"
+          os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+          try:
+              with open(output_path) as f:
+                  existing = json.load(f)
+              if existing.get("history"):
+                  consolidated["history"] = existing["history"]
+              # Append previous run as history entry (keep last 12 weeks)
+              if existing.get("timestamp") and existing.get("scenarios"):
+                  history_entry = {
+                      "timestamp": existing["timestamp"],
+                      "scenarios": existing["scenarios"],
+                  }
+                  consolidated["history"].append(history_entry)
+                  consolidated["history"] = consolidated["history"][-12:]
+          except (FileNotFoundError, json.JSONDecodeError):
+              pass
+
+          with open(output_path, "w") as f:
+              json.dump(consolidated, f, indent=2)
+
+          print(f"Consolidated {len(scenarios)} scenarios into {output_path}")
+          PYEOF
+
+      - name: Commit benchmark results to master
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: 'chore(benchmarks): update benchmark results [skip ci]'
+          file_pattern: 'prisma-docs/static/data/benchmark-results.json'
+          branch: master
+          commit_user_name: 'github-actions[bot]'
+          commit_user_email: 'github-actions[bot]@users.noreply.github.com'
 
       - name: Comment on PR (if applicable)
         if: github.event_name == 'pull_request'

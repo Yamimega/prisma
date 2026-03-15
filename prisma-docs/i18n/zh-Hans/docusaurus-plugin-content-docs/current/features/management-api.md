@@ -13,7 +13,7 @@ sidebar_position: 4
 ```toml
 [management_api]
 enabled = true
-listen_addr = "127.0.0.1:9090"
+listen_addr = "0.0.0.0:9090"
 auth_token = "your-secure-token-here"
 dashboard_dir = "/opt/prisma/dashboard"  # 可选：提供构建好的控制面板
 ```
@@ -75,15 +75,49 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 `auth_secret_hex` 仅在创建时返回一次。请妥善保存。
 :::
 
+### 系统
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/system/info` | 版本、平台、PID、CPU/内存使用率、证书到期时间、监听地址 |
+
 ### 配置
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET` | `/api/config` | 当前服务器配置（敏感信息已脱敏） |
-| `PATCH` | `/api/config` | 热重载支持的字段 |
+| `GET` | `/api/config` | 当前服务器配置（所有段，敏感信息已脱敏） |
+| `PATCH` | `/api/config` | 热重载支持的字段（更改前自动备份配置） |
 | `GET` | `/api/config/tls` | TLS 证书信息 |
 
-**支持热重载的字段：** `logging_level`、`logging_format`、`max_connections`、`port_forwarding_enabled`
+**支持热重载的字段：** `logging_level`、`logging_format`、`max_connections`、`port_forwarding_enabled`，以及所有流量整形、拥塞控制和伪装设置。
+
+### 配置备份
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/config/backups` | 列出带时间戳的配置备份 |
+| `POST` | `/api/config/backup` | 创建手动备份 |
+| `GET` | `/api/config/backups/:name` | 读取备份内容 |
+| `POST` | `/api/config/backups/:name/restore` | 从备份恢复配置 |
+| `DELETE` | `/api/config/backups/:name` | 删除备份 |
+| `GET` | `/api/config/backups/:name/diff` | 比较备份与当前配置的差异 |
+
+### 带宽与配额
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/clients/:id/bandwidth` | 每客户端带宽限制 |
+| `PUT` | `/api/clients/:id/bandwidth` | 更新带宽限制 |
+| `GET` | `/api/clients/:id/quota` | 每客户端配额使用情况 |
+| `PUT` | `/api/clients/:id/quota` | 更新配额配置 |
+| `GET` | `/api/bandwidth/summary` | 所有客户端带宽/配额概览 |
+
+### 告警
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/alerts/config` | 告警阈值（证书到期、配额、握手失败峰值） |
+| `PUT` | `/api/alerts/config` | 更新告警阈值（持久化到 `alerts.json`） |
 
 ### 端口转发
 

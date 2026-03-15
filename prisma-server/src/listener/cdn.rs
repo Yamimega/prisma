@@ -153,7 +153,16 @@ fn build_cdn_router(
 
     // 4. Management API + dashboard on subpath (optional)
     if cdn.expose_management_api {
-        let mgmt = prisma_mgmt::router::build_router(config.management_api.clone(), state);
+        let mgmt_state = prisma_mgmt::MgmtState {
+            state: state.clone(),
+            bandwidth: Some(cdn_state.ctx.bandwidth.clone()),
+            quotas: Some(cdn_state.ctx.quotas.clone()),
+            config_path: None,
+            alert_config: std::sync::Arc::new(tokio::sync::RwLock::new(
+                prisma_mgmt::AlertConfig::default(),
+            )),
+        };
+        let mgmt = prisma_mgmt::router::build_router(config.management_api.clone(), mgmt_state);
         app = app.nest(&cdn.management_api_path, mgmt);
     }
 

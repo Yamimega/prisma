@@ -4,7 +4,9 @@ use axum::Json;
 use serde::Serialize;
 use uuid::Uuid;
 
-use prisma_core::state::{ServerState, SessionMode, Transport};
+use prisma_core::state::{SessionMode, Transport};
+
+use crate::MgmtState;
 
 #[derive(Serialize)]
 pub struct ConnectionResponse {
@@ -19,7 +21,7 @@ pub struct ConnectionResponse {
     pub bytes_down: u64,
 }
 
-pub async fn list(State(state): State<ServerState>) -> Json<Vec<ConnectionResponse>> {
+pub async fn list(State(state): State<MgmtState>) -> Json<Vec<ConnectionResponse>> {
     let conns = state.connections.read().await;
     let list: Vec<_> = conns
         .values()
@@ -38,7 +40,7 @@ pub async fn list(State(state): State<ServerState>) -> Json<Vec<ConnectionRespon
     Json(list)
 }
 
-pub async fn disconnect(State(state): State<ServerState>, Path(id): Path<Uuid>) -> StatusCode {
+pub async fn disconnect(State(state): State<MgmtState>, Path(id): Path<Uuid>) -> StatusCode {
     let mut conns = state.connections.write().await;
     if conns.remove(&id).is_some() {
         StatusCode::OK

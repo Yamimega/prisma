@@ -38,6 +38,7 @@ http-body = "1"
 http-body-util = "0.1"
 webpki-roots = "0.26"
 hex = "0.4"
+governor = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

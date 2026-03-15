@@ -34,6 +34,9 @@ pub async fn run(config_path: &str) -> Result<()> {
     let config = load_server_config(config_path)
         .map_err(|e| anyhow::anyhow!("Failed to load config: {}", e))?;
 
+    // Print startup banner before logging init — always visible regardless of log level
+    print_startup_banner(&config, config_path);
+
     // Create broadcast channels
     let (log_tx, _) = tokio::sync::broadcast::channel::<LogEntry>(1024);
     let (metrics_tx, _) = tokio::sync::broadcast::channel::<MetricsSnapshot>(256);
@@ -43,13 +46,6 @@ pub async fn run(config_path: &str) -> Result<()> {
         &config.logging.level,
         &config.logging.format,
         log_tx.clone(),
-    );
-
-    info!("Prisma server starting");
-    info!(listen = %config.listen_addr, quic_listen = %config.quic_listen_addr);
-    info!(
-        authorized_clients = config.authorized_clients.len(),
-        "Loaded client configurations"
     );
 
     let auth_inner = AuthStoreInner::from_config(&config.authorized_clients)?;
@@ -144,8 +140,41 @@ pub async fn run(config_path: &str) -> Result<()> {
 
     // Start management API if enabled
     if config.management_api.enabled {
-        let mgmt_state = state.clone();
-        let mgmt_config = config.management_api.clone();
+        let mut mgmt_config = config.management_api.clone();
+
+        // Inherit TLS from server config if not explicitly set on management API
+        if mgmt_config.tls.is_none() && mgmt_config.tls_enabled {
+            mgmt_config.tls = config.tls.clone();
+        }
+        if !mgmt_config.tls_enabled {
+            mgmt_config.tls = None;
+        }
+
+        // Load alert config from {config_dir}/alerts.json if it exists
+        let config_path = std::path::PathBuf::from(config_path);
+        let alert_config = {
+            let alerts_path = config_path
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("alerts.json");
+            if alerts_path.exists() {
+                std::fs::read_to_string(&alerts_path)
+                    .ok()
+                    .and_then(|s| serde_json::from_str::<prisma_mgmt::AlertConfig>(&s).ok())
+                    .unwrap_or_default()
+            } else {
+                prisma_mgmt::AlertConfig::default()
+            }
+        };
+
+        let mgmt_state = prisma_mgmt::MgmtState {
+            state: state.clone(),
+            bandwidth: Some(ctx.bandwidth.clone()),
+            quotas: Some(ctx.quotas.clone()),
+            config_path: Some(config_path),
+            alert_config: std::sync::Arc::new(tokio::sync::RwLock::new(alert_config)),
+        };
+
         tokio::spawn(async move {
             if let Err(e) = prisma_mgmt::serve(mgmt_config, mgmt_state).await {
                 tracing::error!("Management API error: {}", e);
@@ -194,4 +223,67 @@ pub async fn run(config_path: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn print_startup_banner(config: &prisma_core::config::server::ServerConfig, config_path: &str) {
+    use prisma_core::types::PRISMA_PROTOCOL_VERSION;
+
+    eprintln!();
+    eprintln!(
+        "  Prisma v{} (protocol v{})",
+        env!("CARGO_PKG_VERSION"),
+        PRISMA_PROTOCOL_VERSION
+    );
+    eprintln!("  ─────────────────────────────────────");
+    eprintln!("  TCP    listening on  {}", config.listen_addr);
+    eprintln!("  QUIC   listening on  {}", config.quic_listen_addr);
+    if config.management_api.enabled {
+        let mgmt_tls = if config.management_api.tls_enabled
+            && (config.management_api.tls.is_some() || config.tls.is_some())
+        {
+            "HTTPS"
+        } else {
+            "HTTP"
+        };
+        eprintln!(
+            "  API    listening on  {} ({})",
+            config.management_api.listen_addr, mgmt_tls
+        );
+    }
+    if config.cdn.enabled {
+        eprintln!("  CDN    listening on  {}", config.cdn.listen_addr);
+    }
+    eprintln!("  ─────────────────────────────────────");
+    eprintln!("  Config:    {}", config_path);
+    eprintln!("  Clients:   {}", config.authorized_clients.len());
+    eprintln!("  Log level: {}", config.logging.level);
+
+    // Transport features
+    let mut transports = vec!["TCP", "QUIC"];
+    if config.cdn.enabled {
+        transports.push("WS");
+        transports.push("gRPC");
+        transports.push("XHTTP");
+        if config.cdn.xporta.as_ref().is_some_and(|x| x.enabled) {
+            transports.push("XPorta");
+        }
+    }
+    if config.prisma_tls.enabled {
+        transports.push("PrismaTLS");
+    }
+    eprintln!("  Transports: {}", transports.join(", "));
+
+    // Security features
+    let tls_status = if config.tls.is_some() {
+        "enabled"
+    } else {
+        "disabled"
+    };
+    let camo_status = if config.camouflage.enabled {
+        "enabled"
+    } else {
+        "disabled"
+    };
+    eprintln!("  TLS: {}  Camouflage: {}", tls_status, camo_status);
+    eprintln!();
 }

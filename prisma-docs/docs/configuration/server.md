@@ -25,10 +25,13 @@ The server is configured via a TOML file (default: `server.toml`). Configuration
 | `port_forwarding.port_range_start` | u16 | `1024` | Minimum allowed forwarded port |
 | `port_forwarding.port_range_end` | u16 | `65535` | Maximum allowed forwarded port |
 | `management_api.enabled` | bool | `false` | Enable the management REST/WS API |
-| `management_api.listen_addr` | string | `"127.0.0.1:9090"` | Management API bind address |
+| `management_api.listen_addr` | string | `"0.0.0.0:9090"` | Management API bind address |
 | `management_api.auth_token` | string | — | Bearer token for API authentication |
 | `management_api.cors_origins` | string[] | `[]` | Allowed CORS origins (for external dashboard dev) |
 | `management_api.dashboard_dir` | string? | — | Path to built dashboard static files |
+| `management_api.tls.cert_path` | string? | — | TLS certificate path for management API (inherits from `[tls]` if omitted) |
+| `management_api.tls.key_path` | string? | — | TLS private key path for management API (inherits from `[tls]` if omitted) |
+| `management_api.tls_enabled` | bool | `true` | Enable TLS on management API (auto-inherits server `[tls]` config) |
 | `padding.min` | u16 | `0` | Minimum per-frame padding bytes |
 | `padding.max` | u16 | `256` | Maximum per-frame padding bytes |
 | `protocol_version` | string | `"v4"` | Protocol version (v4 only) |

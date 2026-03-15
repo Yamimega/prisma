@@ -3,7 +3,7 @@ use axum::Json;
 use serde::Serialize;
 use uuid::Uuid;
 
-use prisma_core::state::ServerState;
+use crate::MgmtState;
 
 #[derive(Serialize)]
 pub struct ForwardInfo {
@@ -14,7 +14,7 @@ pub struct ForwardInfo {
     pub bytes_down: u64,
 }
 
-pub async fn list(State(state): State<ServerState>) -> Json<Vec<ForwardInfo>> {
+pub async fn list(State(state): State<MgmtState>) -> Json<Vec<ForwardInfo>> {
     let conns = state.connections.read().await;
     let forwards: Vec<_> = conns
         .values()

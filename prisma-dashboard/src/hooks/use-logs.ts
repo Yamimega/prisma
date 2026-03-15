@@ -16,6 +16,8 @@ export interface LogEntryWithId extends LogEntry {
 interface LogFilter {
   level?: string;
   target?: string;
+  messageSearch?: string;
+  messageSearchRegex?: boolean;
 }
 
 export function useLogs() {
@@ -53,18 +55,38 @@ export function useLogs() {
     };
   }, []);
 
-  // Client-side filtering for level and target
+  // Client-side filtering for level, target, and message search
   const logs = useMemo(() => {
-    if (!filter.level && !filter.target) return allLogs;
+    if (!filter.level && !filter.target && !filter.messageSearch) return allLogs;
     const minPriority = filter.level
       ? LOG_LEVEL_PRIORITY[filter.level.toUpperCase()] ?? 0
       : 0;
+
+    let messageRegex: RegExp | null = null;
+    if (filter.messageSearch) {
+      if (filter.messageSearchRegex) {
+        try {
+          messageRegex = new RegExp(filter.messageSearch, "i");
+        } catch {
+          // Invalid regex, fall back to literal match
+          messageRegex = null;
+        }
+      }
+    }
+
     return allLogs.filter((entry) => {
       if (filter.level && (LOG_LEVEL_PRIORITY[entry.level] ?? 0) < minPriority) {
         return false;
       }
       if (filter.target && !entry.target.includes(filter.target)) {
         return false;
+      }
+      if (filter.messageSearch) {
+        if (messageRegex) {
+          if (!messageRegex.test(entry.message)) return false;
+        } else {
+          if (!entry.message.toLowerCase().includes(filter.messageSearch.toLowerCase())) return false;
+        }
       }
       return true;
     });

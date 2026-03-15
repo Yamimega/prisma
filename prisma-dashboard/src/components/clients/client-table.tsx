@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -41,7 +42,12 @@ export function ClientTable({ clients, onToggle, onDelete }: ClientTableProps) {
         {clients.map((client) => (
           <TableRow key={client.id}>
             <TableCell className="font-medium">
-              {client.name || "Unnamed"}
+              <Link
+                href={`/dashboard/clients/detail/?id=${client.id}`}
+                className="hover:underline text-primary"
+              >
+                {client.name || "Unnamed"}
+              </Link>
             </TableCell>
             <TableCell>
               {client.enabled ? (

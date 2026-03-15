@@ -4,7 +4,9 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use prisma_core::state::{ClientEntry, ServerState};
+use prisma_core::state::ClientEntry;
+
+use crate::MgmtState;
 
 #[derive(Serialize)]
 pub struct ClientResponse {
@@ -31,7 +33,7 @@ pub struct UpdateClientRequest {
     pub enabled: Option<bool>,
 }
 
-pub async fn list(State(state): State<ServerState>) -> Json<Vec<ClientResponse>> {
+pub async fn list(State(state): State<MgmtState>) -> Json<Vec<ClientResponse>> {
     let store = state.auth_store.read().await;
     let clients: Vec<_> = store
         .clients
@@ -46,7 +48,7 @@ pub async fn list(State(state): State<ServerState>) -> Json<Vec<ClientResponse>>
 }
 
 pub async fn create(
-    State(state): State<ServerState>,
+    State(state): State<MgmtState>,
     Json(req): Json<CreateClientRequest>,
 ) -> Result<Json<CreateClientResponse>, StatusCode> {
     let id = Uuid::new_v4();
@@ -72,7 +74,7 @@ pub async fn create(
 }
 
 pub async fn update(
-    State(state): State<ServerState>,
+    State(state): State<MgmtState>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateClientRequest>,
 ) -> StatusCode {
@@ -91,7 +93,7 @@ pub async fn update(
     }
 }
 
-pub async fn remove(State(state): State<ServerState>, Path(id): Path<Uuid>) -> StatusCode {
+pub async fn remove(State(state): State<MgmtState>, Path(id): Path<Uuid>) -> StatusCode {
     let mut store = state.auth_store.write().await;
     if store.clients.remove(&id).is_some() {
         StatusCode::OK

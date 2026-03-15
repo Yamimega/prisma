@@ -147,7 +147,7 @@ prisma status [-u <URL>] [-t <TOKEN>]
 
 | 参数 | 默认值 | 描述 |
 |------|--------|------|
-| `-u, --url <URL>` | `http://127.0.0.1:9090` | 管理 API 地址 |
+| `-u, --url <URL>` | `https://127.0.0.1:9090` | 管理 API 地址 |
 | `-t, --token <TOKEN>` | — | 管理 API 认证令牌 |
 
 连接到管理 API 并显示服务器健康状态、运行时间、版本和活跃连接数。
@@ -155,7 +155,7 @@ prisma status [-u <URL>] [-t <TOKEN>]
 示例：
 
 ```bash
-prisma status -u http://127.0.0.1:9090 -t your-auth-token
+prisma status -u https://127.0.0.1:9090 -t your-auth-token
 ```
 
 ## `prisma speed-test`
@@ -181,6 +181,40 @@ prisma speed-test -s <SERVER> [OPTIONS]
 prisma speed-test -s my-server.example.com:8443 -d 15 --direction download
 ```
 
+## `prisma dashboard`
+
+启动 Web 控制面板，支持自动下载和反向代理。
+
+```bash
+prisma dashboard [OPTIONS]
+```
+
+| 参数 | 默认值 | 描述 |
+|------|--------|------|
+| `--mgmt-url <URL>` | `https://127.0.0.1:9090` | 代理请求的管理 API 地址 |
+| `--token <TOKEN>` | — | 管理 API 认证令牌 |
+| `--port <PORT>` | `9091` | 控制面板服务端口 |
+| `--bind <ADDR>` | `0.0.0.0` | 控制面板绑定地址 |
+| `--no-open` | — | 不自动打开浏览器 |
+| `--update` | — | 强制重新下载控制面板资源 |
+
+首次运行时从 GitHub Releases 下载最新控制面板并缓存到本地。启动本地服务器提供静态文件并将 `/api/*` 请求反向代理到管理 API。
+
+桌面系统会自动打开浏览器。无头/VPS 环境（SSH 会话、无 `$DISPLAY`）则打印 URL。
+
+示例：
+
+```bash
+# 基本用法（连接本地管理 API）
+prisma dashboard --token your-secure-token
+
+# 连接远程服务器
+prisma dashboard --mgmt-url https://my-server.com:9090 --token my-token
+
+# 强制重新下载最新控制面板
+prisma dashboard --update --token your-secure-token
+```
+
 ## `prisma version`
 
 显示版本信息、协议版本和支持的功能。
@@ -189,4 +223,4 @@ prisma speed-test -s my-server.example.com:8443 -d 15 --direction download
 prisma version
 ```
 
-无需参数。输出 Prisma 版本、PrismaVeil 协议版本、支持的加密算法、支持的传输方式以及 v2 和 v3 的功能列表。
+无需参数。输出 Prisma 版本、PrismaVeil 协议版本、支持的加密算法、支持的传输方式和功能列表。

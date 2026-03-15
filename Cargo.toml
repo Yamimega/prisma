@@ -3,7 +3,7 @@ members = ["prisma-core", "prisma-server", "prisma-client", "prisma-cli", "prism
 resolver = "2"
 
 [workspace.package]
-version = "0.4.3"
+version = "0.4.5"
 edition = "2021"
 license = "GPLv3.0"
 
@@ -106,6 +106,25 @@ ureq = { version = "3", features = ["json"] }
 
 # Concurrent map
 dashmap = "6"
+
+# System info
+sysinfo = "0.32"
+
+# TLS cert parsing
+x509-parser = "0.16"
+
+# Text diffing
+similar = "2"
+
+# Archive extraction
+flate2 = "1"
+tar = "0.4"
+
+# Browser opening
+open = "5"
+
+# HTTP client (async)
+reqwest = { version = "0.12", features = ["json", "stream"] }
 
 # Dev
 proptest = "1"

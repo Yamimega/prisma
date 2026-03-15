@@ -159,6 +159,13 @@ pub struct ManagementApiConfig {
     pub cors_origins: Vec<String>,
     #[serde(default)]
     pub dashboard_dir: Option<String>,
+    /// TLS configuration for the management API.
+    /// If omitted, inherits from the server's top-level `[tls]` section automatically.
+    /// Set `tls_enabled = false` to explicitly disable TLS on the management API.
+    pub tls: Option<TlsConfig>,
+    /// Explicitly disable TLS even when a cert is available.
+    #[serde(default = "default_true")]
+    pub tls_enabled: bool,
 }
 
 impl Default for ManagementApiConfig {
@@ -169,6 +176,8 @@ impl Default for ManagementApiConfig {
             auth_token: String::new(),
             cors_origins: Vec::new(),
             dashboard_dir: None,
+            tls: None,
+            tls_enabled: true,
         }
     }
 }
@@ -396,7 +405,7 @@ fn default_xhttp_upload_path() -> String {
     "/api/v1/upload".into()
 }
 fn default_xhttp_download_path() -> String {
-    "/api/v1/events".into()
+    "/api/v1/pull".into()
 }
 fn default_xhttp_stream_path() -> String {
     "/api/v1/stream".into()
@@ -406,7 +415,7 @@ fn default_true() -> bool {
 }
 
 fn default_mgmt_listen_addr() -> String {
-    "127.0.0.1:9090".into()
+    "0.0.0.0:9090".into()
 }
 
 fn default_port_range_start() -> u16 {

@@ -3,11 +3,17 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import { ConfigForm } from "@/components/settings/config-form";
-import { TlsInfo } from "@/components/settings/tls-info";
+import { CamouflageForm } from "@/components/settings/camouflage-form";
+import { TrafficForm } from "@/components/settings/traffic-form";
+import { SecurityForm } from "@/components/settings/security-form";
+import { AlertsForm } from "@/components/settings/alerts-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function SettingsPage() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null
@@ -16,11 +22,6 @@ export default function SettingsPage() {
   const { data: config, isLoading: configLoading } = useQuery({
     queryKey: ["config"],
     queryFn: api.getConfig,
-  });
-
-  const { data: tls, isLoading: tlsLoading } = useQuery({
-    queryKey: ["tls"],
-    queryFn: api.getTlsInfo,
   });
 
   const patchConfig = useMutation({
@@ -36,10 +37,10 @@ export default function SettingsPage() {
     },
   });
 
-  if (configLoading || tlsLoading) {
+  if (configLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Loading settings...</p>
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
   }
@@ -58,59 +59,49 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Configuration</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {config && (
-              <ConfigForm
-                key={`${config.logging_level}-${config.logging_format}-${config.max_connections}-${config.port_forwarding_enabled}`}
-                config={config}
-                onSave={(data) => patchConfig.mutate(data)}
-                isLoading={patchConfig.isPending}
-              />
-            )}
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="general">
+        <TabsList>
+          <TabsTrigger value="general">{t("settings.general")}</TabsTrigger>
+          <TabsTrigger value="camouflage">{t("settings.camouflage")}</TabsTrigger>
+          <TabsTrigger value="traffic">{t("settings.traffic")}</TabsTrigger>
+          <TabsTrigger value="security">{t("settings.security")}</TabsTrigger>
+          <TabsTrigger value="alerts">{t("settings.alerts")}</TabsTrigger>
+        </TabsList>
 
-        <div className="space-y-6">
-          {tls && <TlsInfo tls={tls} />}
-
+        <TabsContent value="general">
           <Card>
             <CardHeader>
-              <CardTitle>Camouflage</CardTitle>
+              <CardTitle>{t("settings.general")}</CardTitle>
             </CardHeader>
             <CardContent>
-              {config ? (
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Status</span>
-                    <span className={config.camouflage_enabled ? "text-green-600 dark:text-green-400 font-medium" : "text-muted-foreground"}>
-                      {config.camouflage_enabled ? "Enabled" : "Disabled"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">TLS on TCP</span>
-                    <span>{config.camouflage_tls_on_tcp ? "Yes" : "No"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Fallback</span>
-                    <span className="font-mono text-xs">{config.camouflage_fallback_addr || "—"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">ALPN</span>
-                    <span className="font-mono text-xs">{config.camouflage_alpn?.join(", ") || "—"}</span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Loading...</p>
+              {config && (
+                <ConfigForm
+                  key={`${config.logging_level}-${config.logging_format}-${config.max_connections}-${config.port_forwarding_enabled}`}
+                  config={config}
+                  onSave={(data) => patchConfig.mutate(data)}
+                  isLoading={patchConfig.isPending}
+                />
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="camouflage">
+          <CamouflageForm />
+        </TabsContent>
+
+        <TabsContent value="traffic">
+          <TrafficForm />
+        </TabsContent>
+
+        <TabsContent value="security">
+          <SecurityForm />
+        </TabsContent>
+
+        <TabsContent value="alerts">
+          <AlertsForm />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

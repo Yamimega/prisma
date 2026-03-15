@@ -4,7 +4,7 @@ sidebar_position: 6
 
 # CLI Reference
 
-The `prisma` binary provides nine subcommands for running the server and client, generating credentials, managing configs, and diagnostics.
+The `prisma` binary provides ten subcommands for running the server and client, generating credentials, managing configs, launching the dashboard, and diagnostics.
 
 ## `prisma server`
 
@@ -18,7 +18,7 @@ prisma server -c <PATH>
 |------|---------|-------------|
 | `-c, --config <PATH>` | `server.toml` | Path to the server configuration file |
 
-The server starts both TCP and QUIC listeners and waits for client connections. It validates the configuration at startup and exits with an error if validation fails.
+If the config file is not found in the current directory, the CLI automatically searches standard locations (`/etc/prisma/`, `~/.config/prisma/`). The server starts both TCP and QUIC listeners and waits for client connections. It validates the configuration at startup and exits with an error if validation fails.
 
 ## `prisma client`
 
@@ -32,7 +32,7 @@ prisma client -c <PATH>
 |------|---------|-------------|
 | `-c, --config <PATH>` | `client.toml` | Path to the client configuration file |
 
-The client starts the SOCKS5 listener (and optionally the HTTP CONNECT listener), connects to the remote server, performs the PrismaVeil handshake, and begins proxying traffic.
+If the config file is not found in the current directory, the CLI automatically searches standard locations (`/etc/prisma/`, `~/.config/prisma/`). The client starts the SOCKS5 listener (and optionally the HTTP CONNECT listener), connects to the remote server, performs the PrismaVeil handshake, and begins proxying traffic.
 
 ## `prisma gen-key`
 
@@ -147,7 +147,7 @@ prisma status [-u <URL>] [-t <TOKEN>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-u, --url <URL>` | `http://127.0.0.1:9090` | Management API URL |
+| `-u, --url <URL>` | `https://127.0.0.1:9090` | Management API URL |
 | `-t, --token <TOKEN>` | — | Auth token for management API |
 
 Connects to the management API and displays server health, uptime, version, and active connection count.
@@ -155,7 +155,7 @@ Connects to the management API and displays server health, uptime, version, and 
 Example:
 
 ```bash
-prisma status -u http://127.0.0.1:9090 -t your-auth-token
+prisma status -u https://127.0.0.1:9090 -t your-auth-token
 ```
 
 ## `prisma speed-test`
@@ -181,6 +181,40 @@ Example:
 prisma speed-test -s my-server.example.com:8443 -d 15 --direction download
 ```
 
+## `prisma dashboard`
+
+Launch the web dashboard with auto-download and reverse proxy.
+
+```bash
+prisma dashboard [OPTIONS]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--mgmt-url <URL>` | `https://127.0.0.1:9090` | Management API URL to proxy requests to |
+| `--token <TOKEN>` | — | Auth token for management API |
+| `--port <PORT>` | `9091` | Port to serve the dashboard on |
+| `--bind <ADDR>` | `0.0.0.0` | Address to bind the dashboard server to |
+| `--no-open` | — | Don't auto-open the browser |
+| `--update` | — | Force re-download of dashboard assets |
+
+On first run, downloads the latest dashboard from GitHub Releases and caches it locally (`~/.cache/prisma/dashboard/` on Linux, `~/Library/Caches/prisma/` on macOS, `%LOCALAPPDATA%\prisma\` on Windows). Starts a local server that serves the static dashboard and reverse-proxies `/api/*` requests to the management API.
+
+On desktop systems, the browser opens automatically. On headless/VPS (SSH sessions, no `$DISPLAY`), the URL is printed instead.
+
+Example:
+
+```bash
+# Basic usage (connects to local management API)
+prisma dashboard --token your-secure-token
+
+# Connect to remote server
+prisma dashboard --mgmt-url https://my-server.com:9090 --token my-token
+
+# Force re-download latest dashboard
+prisma dashboard --update --token your-secure-token
+```
+
 ## `prisma version`
 
 Display version information, protocol version, and supported features.
@@ -189,4 +223,4 @@ Display version information, protocol version, and supported features.
 prisma version
 ```
 
-No flags. Outputs the Prisma version, PrismaVeil protocol version, supported ciphers, supported transports, and feature lists for v2 and v3.
+No flags. Outputs the Prisma version, PrismaVeil protocol version, supported ciphers, supported transports, and feature lists.

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -56,6 +56,7 @@ pub struct ServerState {
     pub routing_rules: Arc<RwLock<Vec<RoutingRule>>>,
     pub log_tx: broadcast::Sender<LogEntry>,
     pub metrics_tx: broadcast::Sender<MetricsSnapshot>,
+    pub metrics_history: Arc<RwLock<VecDeque<MetricsSnapshot>>>,
 }
 
 impl ServerState {
@@ -73,6 +74,7 @@ impl ServerState {
             routing_rules: Arc::new(RwLock::new(Vec::new())),
             log_tx,
             metrics_tx,
+            metrics_history: Arc::new(RwLock::new(VecDeque::with_capacity(86400))),
         }
     }
 
@@ -180,16 +182,26 @@ pub struct LogEntry {
     pub message: String,
 }
 
-/// Produces MetricsSnapshot every second on the broadcast channel.
+/// Produces MetricsSnapshot every second on the broadcast channel
+/// and stores it in the ring buffer for historical queries.
 pub async fn metrics_ticker(state: ServerState) {
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
     loop {
         interval.tick().await;
-        // Skip snapshot when nobody is listening
-        if state.metrics_tx.receiver_count() == 0 {
-            continue;
-        }
         let snapshot = state.snapshot_metrics();
-        let _ = state.metrics_tx.send(snapshot);
+
+        // Always push to the ring buffer for historical queries
+        {
+            let mut history = state.metrics_history.write().await;
+            if history.len() >= 86400 {
+                history.pop_front();
+            }
+            history.push_back(snapshot.clone());
+        }
+
+        // Only broadcast when someone is listening
+        if state.metrics_tx.receiver_count() > 0 {
+            let _ = state.metrics_tx.send(snapshot);
+        }
     }
 }

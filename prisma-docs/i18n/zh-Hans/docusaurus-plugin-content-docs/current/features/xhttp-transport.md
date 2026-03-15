@@ -14,7 +14,7 @@ XHTTP 是受 Xray-core XHTTP 协议启发的 HTTP 原生传输模式。它将 Pr
 
 ```
 客户端 ──POST /api/v1/upload──▶ 服务器（上传分块）
-客户端 ◀──GET /api/v1/events─── 服务器（下载流）
+客户端 ◀──GET /api/v1/pull─── 服务器（下载流）
 ```
 
 适用于：具有激进 HTTP 超时或缓冲请求体的代理环境。
@@ -52,7 +52,7 @@ listen_addr = "0.0.0.0:443"
 
 # XHTTP 端点（以下为默认路径）
 xhttp_upload_path = "/api/v1/upload"
-xhttp_download_path = "/api/v1/events"
+xhttp_download_path = "/api/v1/pull"
 xhttp_stream_path = "/api/v1/stream"
 
 # 可选：将下载包装为 SSE 格式以提高 CDN 兼容性
@@ -78,7 +78,7 @@ xhttp_stream_url = "https://your-domain.com/api/v1/stream"
 # 对于 packet-up 或 stream-up 模式：
 # xhttp_mode = "packet-up"
 # xhttp_upload_url = "https://your-domain.com/api/v1/upload"
-# xhttp_download_url = "https://your-domain.com/api/v1/events"
+# xhttp_download_url = "https://your-domain.com/api/v1/pull"
 
 # 头部混淆
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"

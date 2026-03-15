@@ -13,7 +13,7 @@ Add the `[management_api]` section to your `server.toml`:
 ```toml
 [management_api]
 enabled = true
-listen_addr = "127.0.0.1:9090"
+listen_addr = "0.0.0.0:9090"
 auth_token = "your-secure-token-here"
 dashboard_dir = "/opt/prisma/dashboard"  # optional: serve built dashboard
 ```
@@ -75,15 +75,49 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 The `auth_secret_hex` is only returned once at creation time. Store it securely.
 :::
 
+### System
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/system/info` | Version, platform, PID, CPU/memory usage, cert expiry, listeners |
+
 ### Configuration
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/config` | Current server config (secrets redacted) |
-| `PATCH` | `/api/config` | Hot-reload supported fields |
+| `GET` | `/api/config` | Current server config (all sections, secrets redacted) |
+| `PATCH` | `/api/config` | Hot-reload supported fields (auto-backs up config before changes) |
 | `GET` | `/api/config/tls` | TLS certificate info |
 
-**Hot-reloadable fields:** `logging_level`, `logging_format`, `max_connections`, `port_forwarding_enabled`
+**Hot-reloadable fields:** `logging_level`, `logging_format`, `max_connections`, `port_forwarding_enabled`, and all traffic shaping, congestion, and camouflage settings.
+
+### Config Backups
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/config/backups` | List timestamped config backups |
+| `POST` | `/api/config/backup` | Create a manual backup |
+| `GET` | `/api/config/backups/:name` | Read backup content |
+| `POST` | `/api/config/backups/:name/restore` | Restore config from backup |
+| `DELETE` | `/api/config/backups/:name` | Delete a backup |
+| `GET` | `/api/config/backups/:name/diff` | Diff backup vs current config |
+
+### Bandwidth & Quotas
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/clients/:id/bandwidth` | Per-client bandwidth limits |
+| `PUT` | `/api/clients/:id/bandwidth` | Update bandwidth limits |
+| `GET` | `/api/clients/:id/quota` | Per-client quota usage |
+| `PUT` | `/api/clients/:id/quota` | Update quota config |
+| `GET` | `/api/bandwidth/summary` | All clients' bandwidth/quota summary |
+
+### Alerts
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/alerts/config` | Alert thresholds (cert expiry, quota, handshake spike) |
+| `PUT` | `/api/alerts/config` | Update alert thresholds (persisted to `alerts.json`) |
 
 ### Port Forwards
 
