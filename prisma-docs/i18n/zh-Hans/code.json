@@ -76,5 +76,182 @@
   },
   "homepage.highlights.obfuscation": {
     "message": "混淆"
+  },
+  "benchmarks.page.title": {
+    "message": "性能基准测试"
+  },
+  "benchmarks.page.description": {
+    "message": "Prisma Proxy 与 Xray-core 和 sing-box 的性能基准对比"
+  },
+  "benchmarks.heading": {
+    "message": "性能基准测试"
+  },
+  "benchmarks.subtitle": {
+    "message": "Prisma Proxy vs Xray-core vs sing-box — 自动化每周对比"
+  },
+  "benchmarks.meta.updated": {
+    "message": "最后更新："
+  },
+  "benchmarks.meta.scenarios": {
+    "message": "个场景"
+  },
+  "benchmarks.loading": {
+    "message": "正在加载基准测试数据..."
+  },
+  "benchmarks.error.title": {
+    "message": "无法加载基准测试"
+  },
+  "benchmarks.error.retry": {
+    "message": "重试"
+  },
+  "benchmarks.error.viewGH": {
+    "message": "在 GitHub Actions 上查看结果"
+  },
+  "benchmarks.error.artifactOnly": {
+    "message": "基准测试数据文件尚未部署。最新 CI 构件可在 GitHub Actions 上查看。"
+  },
+  "benchmarks.error.noData": {
+    "message": "无法加载基准测试数据。请稍后再试或在 GitHub Actions 上查看结果。"
+  },
+  "benchmarks.error.fetch": {
+    "message": "获取基准测试数据失败。请稍后重试。"
+  },
+  "benchmarks.legend.baseline": {
+    "message": "基线"
+  },
+  "benchmarks.throughput.title": {
+    "message": "吞吐量对比"
+  },
+  "benchmarks.throughput.download": {
+    "message": "下载 (Mbps)"
+  },
+  "benchmarks.throughput.upload": {
+    "message": "上传 (Mbps)"
+  },
+  "benchmarks.latency.title": {
+    "message": "延迟对比"
+  },
+  "benchmarks.latency.ttfb": {
+    "message": "TTFB 延迟 (ms)"
+  },
+  "benchmarks.latency.handshake": {
+    "message": "握手时间 (ms)"
+  },
+  "benchmarks.platforms.title": {
+    "message": "平台概览"
+  },
+  "benchmarks.h2h.title": {
+    "message": "正面对比"
+  },
+  "benchmarks.h2h.description": {
+    "message": "每个平台的最佳场景并排对比。"
+  },
+  "benchmarks.h2h.metric": {
+    "message": "指标"
+  },
+  "benchmarks.resources.title": {
+    "message": "资源使用"
+  },
+  "benchmarks.resources.cpuChart": {
+    "message": "CPU 使用率 (%) — 越低越好"
+  },
+  "benchmarks.resources.memChart": {
+    "message": "空闲内存 (KB) — 越低越好"
+  },
+  "benchmarks.resources.scenario": {
+    "message": "场景"
+  },
+  "benchmarks.resources.cpu": {
+    "message": "CPU %"
+  },
+  "benchmarks.resources.memIdle": {
+    "message": "空闲内存 (KB)"
+  },
+  "benchmarks.resources.memLoad": {
+    "message": "负载内存 (KB)"
+  },
+  "benchmarks.resources.concurrent": {
+    "message": "4x 并发 (Mbps)"
+  },
+  "benchmarks.resources.dlCv": {
+    "message": "下载稳定性 (CV%)"
+  },
+  "benchmarks.efficiency.title": {
+    "message": "吞吐效率"
+  },
+  "benchmarks.efficiency.description": {
+    "message": "哪个代理在单位资源消耗下能提供最大吞吐量。"
+  },
+  "benchmarks.efficiency.perMb": {
+    "message": "每 MB 内存吞吐 (Mbps/MB)（越高越好）"
+  },
+  "benchmarks.efficiency.perCpu": {
+    "message": "每 CPU% 吞吐 (Mbps/CPU%)（越高越好）"
+  },
+  "benchmarks.security.title": {
+    "message": "安全评分"
+  },
+  "benchmarks.security.description": {
+    "message": "综合评分 (0-100)，基于加密深度、前向保密、流量分析抵抗、协议检测抵抗、防重放和认证强度。"
+  },
+  "benchmarks.security.chart": {
+    "message": "安全评分（越高越好）"
+  },
+  "benchmarks.security.scenario": {
+    "message": "场景"
+  },
+  "benchmarks.security.tier": {
+    "message": "等级"
+  },
+  "benchmarks.security.score": {
+    "message": "分数"
+  },
+  "benchmarks.security.throughput": {
+    "message": "下载 (Mbps)"
+  },
+  "benchmarks.security.tradeoff": {
+    "message": "安全/速度"
+  },
+  "benchmarks.usecases.title": {
+    "message": "使用场景推荐"
+  },
+  "benchmarks.usecase.personal": {
+    "message": "个人 VPN"
+  },
+  "benchmarks.usecase.personal.desc": {
+    "message": "日常浏览、流媒体和隐私保护。优先考虑低延迟和强安全性。"
+  },
+  "benchmarks.usecase.saas": {
+    "message": "多租户 SaaS"
+  },
+  "benchmarks.usecase.saas.desc": {
+    "message": "服务大量并发用户。优先考虑并发能力和均衡的资源使用。"
+  },
+  "benchmarks.usecase.edge": {
+    "message": "边缘 / IoT"
+  },
+  "benchmarks.usecase.edge.desc": {
+    "message": "资源受限设备。优先考虑低内存占用和 CPU 效率。"
+  },
+  "benchmarks.usecase.cdn": {
+    "message": "CDN / 批量传输"
+  },
+  "benchmarks.usecase.cdn.desc": {
+    "message": "大文件传输和内容分发。优先考虑原始吞吐量和并发能力。"
+  },
+  "benchmarks.usecase.highsec": {
+    "message": "高安全性"
+  },
+  "benchmarks.usecase.highsec.desc": {
+    "message": "最大化抗审查能力。安全评分是主导因素。"
+  },
+  "benchmarks.history.title": {
+    "message": "历史趋势"
+  },
+  "benchmarks.history.placeholder": {
+    "message": "历史基准测试数据在每次 CI 运行时收集。在 GitHub Actions 上查看过去的结果和趋势。"
+  },
+  "benchmarks.history.link": {
+    "message": "在 GitHub Actions 上查看历史数据"
   }
 }

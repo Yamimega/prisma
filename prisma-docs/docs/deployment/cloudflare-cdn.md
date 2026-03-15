@@ -151,7 +151,7 @@ key_path = "origin-key.pem"
 
 # XHTTP transport paths (optional — for XHTTP mode)
 xhttp_upload_path = "/api/v1/upload"
-xhttp_download_path = "/api/v1/events"
+xhttp_download_path = "/api/v1/pull"
 xhttp_stream_path = "/api/v1/stream"
 xhttp_mode = "stream-one"
 response_server_header = "nginx"              # Disguise server identity
@@ -217,7 +217,7 @@ For `packet-up` mode (works even with aggressive CDN request timeouts):
 transport = "xhttp"
 xhttp_mode = "packet-up"
 xhttp_upload_url = "https://proxy.example.com/api/v1/upload"
-xhttp_download_url = "https://proxy.example.com/api/v1/events"
+xhttp_download_url = "https://proxy.example.com/api/v1/pull"
 ```
 
 ### XPorta (ultimate stealth)

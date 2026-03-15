@@ -4,7 +4,7 @@ sidebar_position: 15
 
 # Performance Benchmarks
 
-Prisma Proxy includes an automated benchmark suite that compares its performance against [Xray-core](https://github.com/XTLS/Xray-core) across multiple transport configurations. Results are published weekly and available on the [interactive benchmarks page](/benchmarks).
+Prisma Proxy includes an automated benchmark suite that compares its performance against [Xray-core](https://github.com/XTLS/Xray-core) and [sing-box](https://github.com/SagerNet/sing-box) across multiple transport configurations. Results are published weekly and available on the [interactive benchmarks page](/benchmarks).
 
 ## Methodology
 
@@ -59,6 +59,19 @@ All benchmarks run on **GitHub Actions** (`ubuntu-latest`) using loopback networ
 | Xray VLESS+WS      | VLESS + WS     | WebSocket transport          |
 | Xray VLESS+gRPC    | VLESS + gRPC   | gRPC transport               |
 
+### sing-box Scenarios (8)
+
+| Scenario               | Protocol                      | Notes                           |
+|------------------------|-------------------------------|---------------------------------|
+| sing-box VLESS+TLS     | VLESS                         | Standard TLS configuration      |
+| sing-box VMess+TLS     | VMess                         | VMess protocol                  |
+| sing-box Trojan+TLS    | Trojan                        | Trojan protocol                 |
+| sing-box SS AEAD       | Shadowsocks                   | chacha20-ietf-poly1305          |
+| sing-box SS-2022       | Shadowsocks                   | 2022-blake3-aes-128-gcm        |
+| sing-box VLESS+WS      | VLESS + WebSocket             | WebSocket transport             |
+| sing-box Hysteria2     | Hysteria2 (QUIC)              | QUIC-based, high performance    |
+| sing-box TUIC v5       | TUIC v5 (QUIC)                | QUIC-based multiplexing         |
+
 ### Baseline
 
 A direct connection (no proxy) is measured as a reference point to quantify proxy overhead.
@@ -96,9 +109,10 @@ Each proxy scenario receives a composite security score (0-100) based on six dim
 You can run the benchmark suite locally:
 
 ```bash
-# Ensure prisma and xray binaries are available
+# Ensure prisma, xray, and sing-box binaries are available
 export PRISMA_BIN=./prisma
 export XRAY_BIN=./xray/xray
+export SINGBOX_BIN=./sing-box/sing-box
 
 # Run the benchmark
 ./scripts/benchmark.sh

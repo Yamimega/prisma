@@ -4,7 +4,7 @@ sidebar_position: 15
 
 # 性能基准测试
 
-Prisma Proxy 包含自动化基准测试套件，将其性能与 [Xray-core](https://github.com/XTLS/Xray-core) 在多种传输配置下进行对比。测试结果每周发布，可在[交互式基准测试页面](/benchmarks)查看。
+Prisma Proxy 包含自动化基准测试套件，将其性能与 [Xray-core](https://github.com/XTLS/Xray-core) 和 [sing-box](https://github.com/SagerNet/sing-box) 在多种传输配置下进行对比。测试结果每周发布，可在[交互式基准测试页面](/benchmarks)查看。
 
 ## 测试方法
 
@@ -59,6 +59,19 @@ Prisma Proxy 包含自动化基准测试套件，将其性能与 [Xray-core](htt
 | Xray VLESS+WS     | VLESS + WS     | WebSocket 传输         |
 | Xray VLESS+gRPC   | VLESS + gRPC   | gRPC 传输              |
 
+### sing-box 场景（8 个）
+
+| 场景                  | 协议                          | 备注                           |
+|----------------------|-------------------------------|-------------------------------|
+| sing-box VLESS+TLS   | VLESS                         | 标准 TLS 配置                  |
+| sing-box VMess+TLS   | VMess                         | VMess 协议                     |
+| sing-box Trojan+TLS  | Trojan                        | Trojan 协议                    |
+| sing-box SS AEAD     | Shadowsocks                   | chacha20-ietf-poly1305         |
+| sing-box SS-2022     | Shadowsocks                   | 2022-blake3-aes-128-gcm       |
+| sing-box VLESS+WS    | VLESS + WebSocket             | WebSocket 传输                 |
+| sing-box Hysteria2   | Hysteria2（QUIC）              | 基于 QUIC，高性能               |
+| sing-box TUIC v5     | TUIC v5（QUIC）                | 基于 QUIC 的多路复用            |
+
 ### 基线
 
 直接连接（无代理）作为参考基准，用于量化代理开销。
@@ -96,9 +109,10 @@ Prisma Proxy 包含自动化基准测试套件，将其性能与 [Xray-core](htt
 你可以在本地运行基准测试套件：
 
 ```bash
-# 确保 prisma 和 xray 二进制文件可用
+# 确保 prisma、xray 和 sing-box 二进制文件可用
 export PRISMA_BIN=./prisma
 export XRAY_BIN=./xray/xray
+export SINGBOX_BIN=./sing-box/sing-box
 
 # 运行基准测试
 ./scripts/benchmark.sh

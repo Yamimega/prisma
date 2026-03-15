@@ -53,7 +53,7 @@ sidebar_position: 1
 | `cdn.expose_management_api` | bool | `false` | 通过 CDN 端点暴露管理 API |
 | `cdn.management_api_path` | string | `"/prisma-mgmt"` | CDN 上的管理 API 子路径 |
 | `cdn.xhttp_upload_path` | string | `"/api/v1/upload"` | XHTTP packet-up 上传端点 |
-| `cdn.xhttp_download_path` | string | `"/api/v1/events"` | XHTTP packet-up 下载端点 |
+| `cdn.xhttp_download_path` | string | `"/api/v1/pull"` | XHTTP packet-up 下载端点 |
 | `cdn.xhttp_stream_path` | string | `"/api/v1/stream"` | XHTTP stream-one/stream-up 端点 |
 | `cdn.xhttp_mode` | string? | — | XHTTP 模式：`"packet-up"` / `"stream-up"` / `"stream-one"` |
 | `cdn.xhttp_nosse` | bool | `false` | 禁用 XHTTP 下载的 SSE 包装 |

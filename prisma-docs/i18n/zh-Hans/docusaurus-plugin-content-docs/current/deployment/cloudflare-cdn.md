@@ -151,7 +151,7 @@ key_path = "origin-key.pem"
 
 # XHTTP 传输路径（可选 — 用于 XHTTP 模式）
 xhttp_upload_path = "/api/v1/upload"
-xhttp_download_path = "/api/v1/events"
+xhttp_download_path = "/api/v1/pull"
 xhttp_stream_path = "/api/v1/stream"
 xhttp_mode = "stream-one"
 response_server_header = "nginx"              # 伪装服务器身份
@@ -217,7 +217,7 @@ user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 transport = "xhttp"
 xhttp_mode = "packet-up"
 xhttp_upload_url = "https://proxy.example.com/api/v1/upload"
-xhttp_download_url = "https://proxy.example.com/api/v1/events"
+xhttp_download_url = "https://proxy.example.com/api/v1/pull"
 ```
 
 ### XPorta（终极隐蔽性）

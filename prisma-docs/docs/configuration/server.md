@@ -67,7 +67,7 @@ The server is configured via a TOML file (default: `server.toml`). Configuration
 | `cdn.expose_management_api` | bool | `false` | Expose management API through CDN endpoint |
 | `cdn.management_api_path` | string | `"/prisma-mgmt"` | Management API subpath on CDN |
 | `cdn.xhttp_upload_path` | string | `"/api/v1/upload"` | XHTTP packet-up upload endpoint |
-| `cdn.xhttp_download_path` | string | `"/api/v1/events"` | XHTTP packet-up download endpoint |
+| `cdn.xhttp_download_path` | string | `"/api/v1/pull"` | XHTTP packet-up download endpoint |
 | `cdn.xhttp_stream_path` | string | `"/api/v1/stream"` | XHTTP stream-one/stream-up endpoint |
 | `cdn.xhttp_mode` | string? | — | XHTTP mode: `"packet-up"` / `"stream-up"` / `"stream-one"` |
 | `cdn.xhttp_nosse` | bool | `false` | Disable SSE wrapping for XHTTP download |
