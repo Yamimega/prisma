@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -8,11 +9,16 @@ use tonic::Streaming;
 
 use prisma_core::proto::tunnel::TunnelData;
 
+type ReserveFut<T> = Pin<
+    Box<dyn Future<Output = Result<mpsc::OwnedPermit<T>, mpsc::error::SendError<()>>> + Send>,
+>;
+
 /// Adapter that bridges a tonic bidirectional gRPC stream into AsyncRead + AsyncWrite.
 pub struct GrpcStream {
     read_rx: mpsc::Receiver<bytes::Bytes>,
     write_tx: mpsc::Sender<bytes::Bytes>,
     read_buf: BytesMut,
+    write_reserve: Option<ReserveFut<bytes::Bytes>>,
 }
 
 impl GrpcStream {
@@ -20,8 +26,8 @@ impl GrpcStream {
         inbound: Streaming<TunnelData>,
         response_tx: mpsc::Sender<Result<TunnelData, tonic::Status>>,
     ) -> Self {
-        let (read_tx, read_rx) = mpsc::channel::<bytes::Bytes>(64);
-        let (write_tx, write_rx) = mpsc::channel::<bytes::Bytes>(64);
+        let (read_tx, read_rx) = mpsc::channel::<bytes::Bytes>(256);
+        let (write_tx, write_rx) = mpsc::channel::<bytes::Bytes>(256);
 
         // Read loop: gRPC inbound → channel
         tokio::spawn(Self::read_loop(inbound, read_tx));
@@ -32,6 +38,7 @@ impl GrpcStream {
             read_rx,
             write_tx,
             read_buf: BytesMut::new(),
+            write_reserve: None,
         }
     }
 
@@ -100,27 +107,26 @@ impl AsyncWrite for GrpcStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        match self.write_tx.try_send(bytes::Bytes::copy_from_slice(buf)) {
-            Ok(()) => Poll::Ready(Ok(buf.len())),
-            Err(mpsc::error::TrySendError::Full(_)) => {
-                // Channel full. Spawn a waiter that wakes us when capacity is available.
-                // The spawned task acquires then immediately drops a permit (freeing the
-                // slot), then wakes us so our next try_send succeeds. Data is only ever
-                // sent via try_send above -- never in the spawned task -- preventing duplication.
-                let tx = self.write_tx.clone();
-                let waker = cx.waker().clone();
-                tokio::spawn(async move {
-                    if let Ok(permit) = tx.reserve_owned().await {
-                        drop(permit);
-                    }
-                    waker.wake();
-                });
-                Poll::Pending
+        let this = self.get_mut();
+
+        let mut fut = this
+            .write_reserve
+            .take()
+            .unwrap_or_else(|| Box::pin(this.write_tx.clone().reserve_owned()));
+
+        match fut.as_mut().poll(cx) {
+            Poll::Ready(Ok(permit)) => {
+                permit.send(bytes::Bytes::copy_from_slice(buf));
+                Poll::Ready(Ok(buf.len()))
             }
-            Err(mpsc::error::TrySendError::Closed(_)) => Poll::Ready(Err(std::io::Error::new(
+            Poll::Ready(Err(_)) => Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::BrokenPipe,
                 "gRPC stream closed",
             ))),
+            Poll::Pending => {
+                this.write_reserve = Some(fut);
+                Poll::Pending
+            }
         }
     }
 

@@ -4,7 +4,17 @@ sidebar_position: 6
 
 # CLI Reference
 
-The `prisma` binary provides ten subcommands for running the server and client, generating credentials, managing configs, launching the dashboard, and diagnostics.
+The `prisma` binary provides subcommands for running the server and client, generating credentials, managing configs, launching the dashboard, and controlling a live server via the management API.
+
+## Global flags
+
+These flags apply to every subcommand:
+
+| Flag | Env var | Description |
+|------|---------|-------------|
+| `--json` | — | Output raw JSON instead of formatted tables |
+| `--mgmt-url <URL>` | `PRISMA_MGMT_URL` | Management API URL (overrides auto-detect) |
+| `--mgmt-token <TOKEN>` | `PRISMA_MGMT_TOKEN` | Management API auth token (overrides auto-detect) |
 
 ## `prisma server`
 
@@ -142,20 +152,17 @@ prisma validate -c client.toml -t client
 Query the management API for server status.
 
 ```bash
-prisma status [-u <URL>] [-t <TOKEN>]
+prisma status
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-u, --url <URL>` | `https://127.0.0.1:9090` | Management API URL |
-| `-t, --token <TOKEN>` | — | Auth token for management API |
+No command-specific flags. Uses the global `--mgmt-url` and `--mgmt-token` flags (or the `PRISMA_MGMT_URL` / `PRISMA_MGMT_TOKEN` environment variables).
 
 Connects to the management API and displays server health, uptime, version, and active connection count.
 
 Example:
 
 ```bash
-prisma status -u https://127.0.0.1:9090 -t your-auth-token
+prisma status --mgmt-url https://127.0.0.1:9090 --mgmt-token your-auth-token
 ```
 
 ## `prisma speed-test`
@@ -197,6 +204,7 @@ prisma dashboard [OPTIONS]
 | `--bind <ADDR>` | `0.0.0.0` | Address to bind the dashboard server to |
 | `--no-open` | — | Don't auto-open the browser |
 | `--update` | — | Force re-download of dashboard assets |
+| `--dir <PATH>` | — | Serve dashboard from a local directory instead of downloading |
 
 On first run, downloads the latest dashboard from GitHub Releases and caches it locally (`~/.cache/prisma/dashboard/` on Linux, `~/Library/Caches/prisma/` on macOS, `%LOCALAPPDATA%\prisma\` on Windows). Starts a local server that serves the static dashboard and reverse-proxies `/api/*` requests to the management API.
 
@@ -224,3 +232,169 @@ prisma version
 ```
 
 No flags. Outputs the Prisma version, PrismaVeil protocol version, supported ciphers, supported transports, and feature lists.
+
+## `prisma completions`
+
+Generate shell completion scripts.
+
+```bash
+prisma completions <SHELL>
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<SHELL>` | Shell to generate completions for: `bash`, `fish`, `zsh`, `elvish`, `powershell` |
+
+Example:
+
+```bash
+# Bash
+prisma completions bash >> ~/.bash_completion
+
+# Zsh
+prisma completions zsh > ~/.zfunc/_prisma
+```
+
+---
+
+## Management API commands
+
+The following commands communicate with a running server via the management API. Set `--mgmt-url` and `--mgmt-token` (or the corresponding env vars) as needed.
+
+## `prisma clients`
+
+Manage authorized clients.
+
+```bash
+prisma clients <SUBCOMMAND>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List all authorized clients |
+| `show <ID>` | Show details for a specific client |
+| `create [--name NAME]` | Create a new client (auto-generates keys) |
+| `delete <ID> [--yes]` | Delete a client (`--yes` skips confirmation) |
+| `enable <ID>` | Enable a client |
+| `disable <ID>` | Disable a client |
+
+## `prisma connections`
+
+Manage active connections.
+
+```bash
+prisma connections <SUBCOMMAND>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List active connections |
+| `disconnect <ID>` | Terminate a specific session |
+| `watch [--interval N]` | Watch connections in real-time (default interval: 2s) |
+
+## `prisma metrics`
+
+View server metrics and system information.
+
+```bash
+prisma metrics [OPTIONS]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--watch` | — | Auto-refresh metrics |
+| `--history` | — | Show historical metrics |
+| `--period <PERIOD>` | `1h` | History period: `1h`, `6h`, `24h`, `7d` |
+| `--interval <SECS>` | `2` | Refresh interval in seconds (for `--watch`) |
+| `--system` | — | Show system info instead of metrics |
+
+## `prisma bandwidth`
+
+Manage per-client bandwidth limits and quotas.
+
+```bash
+prisma bandwidth <SUBCOMMAND>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `summary` | Show bandwidth summary for all clients |
+| `get <ID>` | Show bandwidth and quota for a specific client |
+| `set <ID> [--upload BPS] [--download BPS]` | Set upload/download limits in bits per second (0 = unlimited) |
+| `quota <ID> [--limit BYTES]` | Get or set traffic quota in bytes |
+
+## `prisma config`
+
+Manage server configuration.
+
+```bash
+prisma config <SUBCOMMAND>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `get` | Show current server configuration |
+| `set <KEY> <VALUE>` | Update a configuration value (dotted notation, e.g., `logging.level`) |
+| `tls` | Show TLS configuration |
+| `backup create` | Create a new configuration backup |
+| `backup list` | List all backups |
+| `backup restore <NAME>` | Restore a backup |
+| `backup diff <NAME>` | Show diff between a backup and current config |
+| `backup delete <NAME>` | Delete a backup |
+
+## `prisma routes`
+
+Manage server-side routing rules.
+
+```bash
+prisma routes <SUBCOMMAND>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List all routing rules |
+| `create --name NAME --condition COND --action ACTION [--priority N]` | Create a routing rule |
+| `update <ID> [--condition COND] [--action ACTION] [--priority N] [--name NAME]` | Update a routing rule |
+| `delete <ID>` | Delete a routing rule |
+
+Condition format: `TYPE:VALUE`, e.g. `DomainMatch:*.ads.*`, `IpCidr:10.0.0.0/8`, `PortRange:80-443`, `All`.
+
+## `prisma logs`
+
+Stream live server logs via WebSocket.
+
+```bash
+prisma logs [OPTIONS]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--level <LEVEL>` | — | Minimum log level: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` |
+| `--lines <N>` | — | Maximum number of log lines to display before stopping |
+
+## `prisma ping`
+
+Measure handshake RTT to the server.
+
+```bash
+prisma ping [OPTIONS]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-c, --config <PATH>` | `client.toml` | Client config file (for auth credentials) |
+| `-s, --server <HOST:PORT>` | — | Override server address from config |
+| `--count <N>` | `5` | Number of pings |
+| `--interval <MS>` | `1000` | Interval between pings in milliseconds |
+
+## `prisma test-transport`
+
+Test all configured transports against the server and report which succeed.
+
+```bash
+prisma test-transport [OPTIONS]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-c, --config <PATH>` | `client.toml` | Client config file |

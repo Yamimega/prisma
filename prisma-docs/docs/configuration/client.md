@@ -15,7 +15,7 @@ The client is configured via a TOML file (default: `client.toml`). Configuration
 | `server_addr` | string | — | Remote Prisma server address (e.g. `1.2.3.4:8443`) |
 | `identity.client_id` | string | — | Client UUID (must match server config) |
 | `identity.auth_secret` | string | — | 64 hex character shared secret (must match server config) |
-| `cipher_suite` | string | `"chacha20-poly1305"` | `chacha20-poly1305` / `aes-256-gcm` / `transport-only` |
+| `cipher_suite` | string | `"chacha20-poly1305"` | `chacha20-poly1305` / `aes-256-gcm` |
 | `transport` | string | `"quic"` | `quic` / `tcp` / `ws` / `grpc` / `xhttp` / `xporta` / `prisma-tls` |
 | `skip_cert_verify` | bool | `false` | Skip TLS certificate verification |
 | `tls_on_tcp` | bool | `false` | Connect via TLS-wrapped TCP (must match server camouflage) |
@@ -142,7 +142,7 @@ The client config is validated at startup. The following rules are enforced:
 - `server_addr` must not be empty
 - `identity.client_id` must not be empty
 - `identity.auth_secret` must be valid hex
-- `cipher_suite` must be one of: `chacha20-poly1305`, `aes-256-gcm`, `transport-only`
+- `cipher_suite` must be one of: `chacha20-poly1305`, `aes-256-gcm`
 - `transport` must be one of: `quic`, `tcp`, `ws`, `grpc`, `xhttp`, `xporta`, `prisma-tls`
 - `xhttp_mode` (when transport is `xhttp`) must be one of: `packet-up`, `stream-up`, `stream-one`
 - `xhttp_mode = "stream-one"` requires `xhttp_stream_url`

@@ -19,7 +19,11 @@ use prisma_core::xporta::encoding::{
 use prisma_core::xporta::reassembler::Reassembler;
 use prisma_core::xporta::types::XPortaEncoding;
 
-/// Client-side XPorta stream — provides AsyncRead + AsyncWrite over multiple short HTTP requests.
+type ReserveFut<T> = Pin<
+    Box<dyn Future<Output = Result<mpsc::OwnedPermit<T>, mpsc::error::SendError<()>>> + Send>,
+>;
+
+/// Client-side XPorta stream -- provides AsyncRead + AsyncWrite over multiple short HTTP requests.
 pub struct XPortaClientStream {
     /// Receives in-order reassembled download data.
     read_rx: mpsc::Receiver<Bytes>,
@@ -27,7 +31,7 @@ pub struct XPortaClientStream {
     write_tx: mpsc::Sender<Bytes>,
     read_buf: Vec<u8>,
     read_pos: usize,
-    write_permit: Option<mpsc::OwnedPermit<Bytes>>,
+    write_reserve: Option<ReserveFut<Bytes>>,
 }
 
 impl XPortaClientStream {
@@ -37,7 +41,7 @@ impl XPortaClientStream {
             write_tx,
             read_buf: Vec::new(),
             read_pos: 0,
-            write_permit: None,
+            write_reserve: None,
         }
     }
 }
@@ -86,13 +90,12 @@ impl AsyncWrite for XPortaClientStream {
     ) -> Poll<std::io::Result<usize>> {
         let this = self.get_mut();
 
-        if let Some(permit) = this.write_permit.take() {
-            permit.send(Bytes::copy_from_slice(buf));
-            return Poll::Ready(Ok(buf.len()));
-        }
+        let mut fut = this
+            .write_reserve
+            .take()
+            .unwrap_or_else(|| Box::pin(this.write_tx.clone().reserve_owned()));
 
-        let mut reserve = Box::pin(this.write_tx.clone().reserve_owned());
-        match reserve.as_mut().poll(cx) {
+        match fut.as_mut().poll(cx) {
             Poll::Ready(Ok(permit)) => {
                 permit.send(Bytes::copy_from_slice(buf));
                 Poll::Ready(Ok(buf.len()))
@@ -101,7 +104,10 @@ impl AsyncWrite for XPortaClientStream {
                 std::io::ErrorKind::BrokenPipe,
                 "channel closed",
             ))),
-            Poll::Pending => Poll::Pending,
+            Poll::Pending => {
+                this.write_reserve = Some(fut);
+                Poll::Pending
+            }
         }
     }
 

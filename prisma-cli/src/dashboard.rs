@@ -10,33 +10,9 @@ pub async fn run_dashboard(
     bind: String,
     no_open: bool,
     update: bool,
+    dir: Option<String>,
 ) -> Result<()> {
-    let cache_dir = get_cache_dir()?;
-    let dashboard_dir = cache_dir.join("dashboard");
-    let version_file = dashboard_dir.join(".version");
-
-    // Check if we need to download
-    let needs_download = update || !dashboard_dir.join("index.html").exists();
-
-    if needs_download {
-        println!("Downloading latest dashboard...");
-        match download_dashboard(&dashboard_dir, &version_file).await {
-            Ok(version) => println!("Dashboard {} downloaded successfully", version),
-            Err(e) => {
-                if dashboard_dir.join("index.html").exists() {
-                    eprintln!("Warning: Failed to download latest dashboard: {}", e);
-                    eprintln!("Using cached version");
-                } else {
-                    anyhow::bail!(
-                        "Failed to download dashboard and no cached version available: {}",
-                        e
-                    );
-                }
-            }
-        }
-    } else if let Ok(version) = std::fs::read_to_string(&version_file) {
-        println!("Using cached dashboard {}", version.trim());
-    }
+    let dashboard_dir = resolve_dashboard_dir(dir, update).await?;
 
     // Build the reverse proxy + static file server
     let listen_addr = format!("{}:{}", bind, port);
@@ -73,6 +49,66 @@ pub async fn run_dashboard(
     Ok(())
 }
 
+/// Resolve which directory to serve the dashboard from.
+/// Priority: --dir flag > cached download > dev build > fresh download
+async fn resolve_dashboard_dir(dir: Option<String>, update: bool) -> Result<PathBuf> {
+    // 1. Explicit --dir flag
+    if let Some(dir) = dir {
+        let path = PathBuf::from(&dir);
+        if path.join("index.html").exists() {
+            println!("Using local dashboard from {}", path.display());
+            return Ok(path);
+        }
+        anyhow::bail!("Dashboard directory '{}' does not contain index.html", dir);
+    }
+
+    let cache_dir = get_cache_dir()?;
+    let dashboard_dir = cache_dir.join("dashboard");
+    let version_file = dashboard_dir.join(".version");
+
+    // 2. If we have a cached version and no --update, use it
+    if !update && dashboard_dir.join("index.html").exists() {
+        if let Ok(version) = std::fs::read_to_string(&version_file) {
+            println!("Using cached dashboard {}", version.trim());
+        }
+        return Ok(dashboard_dir);
+    }
+
+    // 3. Try downloading
+    println!("Downloading latest dashboard...");
+    match download_dashboard(&dashboard_dir, &version_file).await {
+        Ok(version) => {
+            println!("Dashboard {} downloaded successfully", version);
+            Ok(dashboard_dir)
+        }
+        Err(e) => {
+            // If we have a stale cache, use it
+            if dashboard_dir.join("index.html").exists() {
+                eprintln!("Warning: Failed to download latest dashboard: {}", e);
+                eprintln!("Using cached version");
+                return Ok(dashboard_dir);
+            }
+
+            // 4. Fall back to local dev build (prisma-dashboard/out/)
+            let dev_dir = PathBuf::from("prisma-dashboard/out");
+            if dev_dir.join("index.html").exists() {
+                eprintln!("Warning: Failed to download dashboard: {}", e);
+                println!("Using local dev build from {}", dev_dir.display());
+                return Ok(dev_dir);
+            }
+
+            anyhow::bail!(
+                "Failed to download dashboard: {}\n\n\
+                 No cached or local build found. Options:\n\
+                 - Build locally: cd prisma-dashboard && npm ci && npm run build\n\
+                   Then: prisma dashboard --dir prisma-dashboard/out\n\
+                 - Ensure the latest GitHub release has a prisma-dashboard.tar.gz asset",
+                e
+            );
+        }
+    }
+}
+
 fn get_cache_dir() -> Result<PathBuf> {
     let dir = if cfg!(target_os = "windows") {
         dirs_or_fallback("LOCALAPPDATA", "prisma")
@@ -107,6 +143,11 @@ async fn download_dashboard(dest: &Path, version_file: &Path) -> Result<String> 
         .json()
         .await?;
 
+    // Check for API errors (rate limit, not found, etc.)
+    if let Some(msg) = release["message"].as_str() {
+        anyhow::bail!("GitHub API error: {}", msg);
+    }
+
     let version = release["tag_name"]
         .as_str()
         .unwrap_or("unknown")
@@ -120,9 +161,12 @@ async fn download_dashboard(dest: &Path, version_file: &Path) -> Result<String> 
     }
 
     // Find dashboard asset
-    let assets = release["assets"]
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("No assets in release"))?;
+    let assets = release["assets"].as_array().ok_or_else(|| {
+        anyhow::anyhow!(
+            "Release {} has no assets (dashboard may not have been built for this release)",
+            version
+        )
+    })?;
 
     let asset = assets
         .iter()
@@ -132,7 +176,13 @@ async fn download_dashboard(dest: &Path, version_file: &Path) -> Result<String> 
                 .map(|n| n.contains("dashboard") && n.ends_with(".tar.gz"))
                 .unwrap_or(false)
         })
-        .ok_or_else(|| anyhow::anyhow!("No dashboard asset found in release"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Release {} has no prisma-dashboard.tar.gz asset (found {} other assets)",
+                version,
+                assets.len()
+            )
+        })?;
 
     let download_url = asset["browser_download_url"]
         .as_str()

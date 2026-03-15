@@ -50,7 +50,7 @@ impl PrismaTunnel for TunnelServiceImpl {
             .fetch_add(1, Ordering::Relaxed);
 
         let inbound = request.into_inner();
-        let (response_tx, response_rx) = mpsc::channel::<Result<TunnelData, Status>>(64);
+        let (response_tx, response_rx) = mpsc::channel::<Result<TunnelData, Status>>(256);
 
         let grpc_stream = GrpcStream::new(inbound, response_tx);
 
@@ -58,7 +58,6 @@ impl PrismaTunnel for TunnelServiceImpl {
         let auth = self.auth.clone();
         let dns = self.dns.clone();
         let ctx = self.ctx.clone();
-        let peer = peer_ip.clone();
 
         tokio::spawn(async move {
             let fwd = config.port_forwarding.clone();
@@ -68,13 +67,13 @@ impl PrismaTunnel for TunnelServiceImpl {
                 dns,
                 fwd,
                 ctx.clone(),
-                peer.clone(),
+                peer_ip.clone(),
                 None,
             )
             .await;
 
             if let Err(e) = result {
-                warn!(peer = %peer, error = %e, "gRPC tunnel error");
+                warn!(peer = %peer_ip, error = %e, "gRPC tunnel error");
             }
 
             ctx.state

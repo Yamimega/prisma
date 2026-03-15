@@ -15,7 +15,7 @@ sidebar_position: 2
 | `server_addr` | string | — | 远程 Prisma 服务器地址（如 `1.2.3.4:8443`） |
 | `identity.client_id` | string | — | 客户端 UUID（须与服务端配置匹配） |
 | `identity.auth_secret` | string | — | 64 个十六进制字符的共享密钥（须与服务端配置匹配） |
-| `cipher_suite` | string | `"chacha20-poly1305"` | `chacha20-poly1305` / `aes-256-gcm` / `transport-only` |
+| `cipher_suite` | string | `"chacha20-poly1305"` | `chacha20-poly1305` / `aes-256-gcm` |
 | `transport` | string | `"quic"` | `quic` / `tcp` / `ws` / `grpc` / `xhttp` / `xporta` / `prisma-tls` |
 | `skip_cert_verify` | bool | `false` | 跳过 TLS 证书验证 |
 | `tls_on_tcp` | bool | `false` | 通过 TLS 包裹的 TCP 连接（须与服务端伪装设置匹配） |
@@ -142,7 +142,7 @@ format = "pretty"
 - `server_addr` 不能为空
 - `identity.client_id` 不能为空
 - `identity.auth_secret` 必须是有效的十六进制字符串
-- `cipher_suite` 必须是以下之一：`chacha20-poly1305`、`aes-256-gcm`、`transport-only`
+- `cipher_suite` 必须是以下之一：`chacha20-poly1305`、`aes-256-gcm`
 - `transport` 必须是以下之一：`quic`、`tcp`、`ws`、`grpc`、`xhttp`、`xporta`、`prisma-tls`
 - `xhttp_mode`（当 transport 为 `xhttp` 时）必须是以下之一：`packet-up`、`stream-up`、`stream-one`
 - `xhttp_mode = "stream-one"` 需要设置 `xhttp_stream_url`

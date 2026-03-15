@@ -111,12 +111,8 @@ fn create_server_endpoint(
     let mut endpoint_config = quinn::EndpointConfig::default();
     endpoint_config.supported_versions(vec![1, prisma_core::types::QUIC_VERSION_2]);
 
-    let endpoint = Endpoint::new_with_abstract_socket(
-        endpoint_config,
-        Some(server_config),
-        socket,
-        runtime,
-    )?;
+    let endpoint =
+        Endpoint::new_with_abstract_socket(endpoint_config, Some(server_config), socket, runtime)?;
     Ok(endpoint)
 }
 

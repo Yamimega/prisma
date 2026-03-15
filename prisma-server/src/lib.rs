@@ -66,23 +66,6 @@ pub async fn run(config_path: &str) -> Result<()> {
         info!(count, "Loaded static routing rules from config");
     }
 
-    // Load GeoIP database if configured
-    if let Some(ref path) = config.routing.geoip_path {
-        match prisma_core::geodata::GeoIPMatcher::load(path) {
-            Ok(matcher) => {
-                info!(
-                    countries = matcher.country_codes().len(),
-                    "GeoIP database loaded for server"
-                );
-                // Store for potential future server-side geo-filtering
-                let _ = matcher;
-            }
-            Err(e) => {
-                tracing::warn!("Failed to load GeoIP database: {}", e);
-            }
-        }
-    }
-
     let auth_store = AuthStore::from_inner(state.auth_store.clone());
     let dns_cache = DnsCache::default();
 
@@ -152,9 +135,9 @@ pub async fn run(config_path: &str) -> Result<()> {
         }
 
         // Load alert config from {config_dir}/alerts.json if it exists
-        let config_path = std::path::PathBuf::from(config_path);
+        let config_path_buf = std::path::PathBuf::from(config_path);
         let alert_config = {
-            let alerts_path = config_path
+            let alerts_path = config_path_buf
                 .parent()
                 .unwrap_or(std::path::Path::new("."))
                 .join("alerts.json");
@@ -172,7 +155,7 @@ pub async fn run(config_path: &str) -> Result<()> {
             state: state.clone(),
             bandwidth: Some(ctx.bandwidth.clone()),
             quotas: Some(ctx.quotas.clone()),
-            config_path: Some(config_path),
+            config_path: Some(config_path_buf),
             alert_config: std::sync::Arc::new(tokio::sync::RwLock::new(alert_config)),
         };
 

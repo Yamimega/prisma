@@ -20,8 +20,10 @@ pub type SessionMap = DashMap<String, SessionChannels>;
 pub struct SessionChannels {
     /// Send data from upload handler to the XhttpStream reader
     pub upload_tx: mpsc::Sender<Bytes>,
-    /// Receive data from XhttpStream writer for download handler
-    pub download_rx: mpsc::Receiver<Bytes>,
+    /// Receive data from XhttpStream writer for download handler.
+    /// Wrapped in Mutex<Option<...>> so the download handler can atomically
+    /// take it exactly once without a remove-then-reinsert race.
+    pub download_rx: std::sync::Mutex<Option<mpsc::Receiver<Bytes>>>,
 }
 
 /// Shared state for XHTTP handlers, wrapping CdnState + session map.
@@ -62,7 +64,7 @@ pub async fn packet_upload_handler(
             session_id.clone(),
             SessionChannels {
                 upload_tx: upload_tx.clone(),
-                download_rx,
+                download_rx: std::sync::Mutex::new(Some(download_rx)),
             },
         );
 
@@ -138,23 +140,13 @@ pub async fn packet_download_handler(
         return StatusCode::BAD_REQUEST.into_response();
     }
 
-    // Take the download_rx from the session
-    let download_rx = match state.sessions.remove(&session_id) {
-        Some((sid, channels)) => {
-            // Re-insert without download_rx (it's been consumed)
-            // We keep only upload_tx for future uploads
-            state.sessions.insert(
-                sid,
-                SessionChannels {
-                    upload_tx: channels.upload_tx,
-                    download_rx: mpsc::channel(1).1, // dummy — already taken
-                },
-            );
-            channels.download_rx
-        }
-        None => {
-            return StatusCode::NOT_FOUND.into_response();
-        }
+    // Atomically take download_rx from the session (no remove+reinsert race).
+    let download_rx = match state.sessions.get(&session_id) {
+        Some(entry) => match entry.download_rx.lock().unwrap().take() {
+            Some(rx) => rx,
+            None => return StatusCode::CONFLICT.into_response(), // already consumed
+        },
+        None => return StatusCode::NOT_FOUND.into_response(),
     };
 
     let use_sse = !state.cdn.config.cdn.xhttp_nosse;

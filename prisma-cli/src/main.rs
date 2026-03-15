@@ -1,5 +1,15 @@
+mod api_client;
+mod bandwidth;
+mod clients;
+mod completions;
+mod config_ops;
+mod connections;
 mod dashboard;
+mod diagnostics;
 mod init;
+mod logs;
+mod metrics;
+mod routes;
 mod status;
 mod validate;
 
@@ -12,9 +22,21 @@ const PROTOCOL_VERSION: u8 = prisma_core::types::PRISMA_PROTOCOL_VERSION;
 
 #[derive(Parser)]
 #[command(name = "prisma", about = "Prisma proxy infrastructure suite")]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
     command: Commands,
+
+    /// Output raw JSON instead of formatted tables
+    #[arg(long, global = true)]
+    json: bool,
+
+    /// Management API URL (overrides env PRISMA_MGMT_URL and auto-detect)
+    #[arg(long, global = true, env = "PRISMA_MGMT_URL")]
+    mgmt_url: Option<String>,
+
+    /// Management API auth token (overrides env PRISMA_MGMT_TOKEN and auto-detect)
+    #[arg(long, global = true, env = "PRISMA_MGMT_TOKEN")]
+    mgmt_token: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -68,12 +90,12 @@ enum Commands {
     },
     /// Query management API for server status
     Status {
-        /// Management API URL
-        #[arg(short, long, default_value = "https://127.0.0.1:9090")]
-        url: String,
-        /// Auth token for management API
-        #[arg(short, long, default_value = "")]
-        token: String,
+        /// Management API URL (hidden, use --mgmt-url instead)
+        #[arg(short, long, hide = true)]
+        url: Option<String>,
+        /// Auth token (hidden, use --mgmt-token instead)
+        #[arg(short, long, hide = true)]
+        token: Option<String>,
     },
     /// Run a speed test against the server
     SpeedTest {
@@ -112,6 +134,246 @@ enum Commands {
         /// Force re-download of dashboard assets
         #[arg(long)]
         update: bool,
+        /// Serve dashboard from a local directory instead of downloading
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Generate shell completion scripts
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+
+    // --- Management API commands ---
+    /// Manage authorized clients
+    #[command(subcommand)]
+    Clients(ClientsCmd),
+    /// Manage active connections
+    #[command(subcommand)]
+    Connections(ConnectionsCmd),
+    /// View server metrics and system info
+    Metrics {
+        /// Auto-refresh metrics
+        #[arg(long)]
+        watch: bool,
+        /// Show historical metrics
+        #[arg(long)]
+        history: bool,
+        /// History period: 1h, 6h, 24h, 7d
+        #[arg(long, default_value = "1h")]
+        period: String,
+        /// Refresh interval in seconds (for --watch)
+        #[arg(long, default_value = "2")]
+        interval: u64,
+        /// Show system info instead of metrics
+        #[arg(long)]
+        system: bool,
+    },
+    /// Manage bandwidth limits and quotas
+    #[command(subcommand)]
+    Bandwidth(BandwidthCmd),
+    /// Manage server configuration
+    #[command(subcommand)]
+    Config(ConfigCmd),
+    /// Manage routing rules
+    #[command(subcommand)]
+    Routes(RoutesCmd),
+    /// Stream live server logs via WebSocket
+    Logs {
+        /// Minimum log level: TRACE, DEBUG, INFO, WARN, ERROR
+        #[arg(long)]
+        level: Option<String>,
+        /// Maximum number of log lines to display
+        #[arg(long)]
+        lines: Option<usize>,
+    },
+    /// Ping the server (connect + handshake RTT)
+    Ping {
+        /// Path to client config file
+        #[arg(short, long, default_value = "client.toml")]
+        config: String,
+        /// Override server address
+        #[arg(short, long)]
+        server: Option<String>,
+        /// Number of pings
+        #[arg(long, default_value = "5")]
+        count: u32,
+        /// Interval between pings in milliseconds
+        #[arg(long, default_value = "1000")]
+        interval: u64,
+    },
+    /// Test all configured transports against the server
+    TestTransport {
+        /// Path to client config file
+        #[arg(short, long, default_value = "client.toml")]
+        config: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ClientsCmd {
+    /// List all authorized clients
+    List,
+    /// Show details for a specific client
+    Show {
+        /// Client ID
+        id: String,
+    },
+    /// Create a new client
+    Create {
+        /// Client name
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// Delete a client
+    Delete {
+        /// Client ID
+        id: String,
+        /// Skip confirmation
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Enable a client
+    Enable {
+        /// Client ID
+        id: String,
+    },
+    /// Disable a client
+    Disable {
+        /// Client ID
+        id: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConnectionsCmd {
+    /// List active connections
+    List,
+    /// Disconnect a specific connection
+    Disconnect {
+        /// Session ID
+        id: String,
+    },
+    /// Watch connections in real-time
+    Watch {
+        /// Refresh interval in seconds
+        #[arg(long, default_value = "2")]
+        interval: u64,
+    },
+}
+
+#[derive(Subcommand)]
+enum BandwidthCmd {
+    /// Show bandwidth summary for all clients
+    Summary,
+    /// Show bandwidth and quota for a specific client
+    Get {
+        /// Client ID
+        id: String,
+    },
+    /// Set bandwidth limits for a client
+    Set {
+        /// Client ID
+        id: String,
+        /// Upload limit in bits per second (0 = unlimited)
+        #[arg(long)]
+        upload: Option<u64>,
+        /// Download limit in bits per second (0 = unlimited)
+        #[arg(long)]
+        download: Option<u64>,
+    },
+    /// Get or set traffic quota for a client
+    Quota {
+        /// Client ID
+        id: String,
+        /// Quota limit in bytes (omit to show current)
+        #[arg(long)]
+        limit: Option<u64>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigCmd {
+    /// Show current server configuration
+    Get,
+    /// Update a configuration value
+    Set {
+        /// Configuration key (dotted notation, e.g., logging.level)
+        key: String,
+        /// New value
+        value: String,
+    },
+    /// Show TLS configuration
+    Tls,
+    /// Manage configuration backups
+    #[command(subcommand)]
+    Backup(BackupCmd),
+}
+
+#[derive(Subcommand)]
+enum BackupCmd {
+    /// Create a new backup
+    Create,
+    /// List all backups
+    List,
+    /// Restore a backup
+    Restore {
+        /// Backup name
+        name: String,
+    },
+    /// Show diff between backup and current config
+    Diff {
+        /// Backup name
+        name: String,
+    },
+    /// Delete a backup
+    Delete {
+        /// Backup name
+        name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum RoutesCmd {
+    /// List all routing rules
+    List,
+    /// Create a new routing rule
+    Create {
+        /// Rule name
+        #[arg(long)]
+        name: String,
+        /// Condition (TYPE:VALUE, e.g., DomainMatch:*.ads.*, IpCidr:10.0.0.0/8, PortRange:80-443, All)
+        #[arg(long)]
+        condition: String,
+        /// Action: allow or block
+        #[arg(long)]
+        action: String,
+        /// Priority (lower = higher priority)
+        #[arg(long, default_value = "100")]
+        priority: u32,
+    },
+    /// Update a routing rule
+    Update {
+        /// Rule ID
+        id: String,
+        /// New condition
+        #[arg(long)]
+        condition: Option<String>,
+        /// New action
+        #[arg(long)]
+        action: Option<String>,
+        /// New priority
+        #[arg(long)]
+        priority: Option<u32>,
+        /// New name
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// Delete a routing rule
+    Delete {
+        /// Rule ID
+        id: String,
     },
 }
 
@@ -122,6 +384,9 @@ async fn main() -> anyhow::Result<()> {
         .expect("Failed to install default CryptoProvider");
 
     let cli = Cli::parse();
+    let global_json = cli.json;
+    let global_mgmt_url = cli.mgmt_url;
+    let global_mgmt_token = cli.mgmt_token;
 
     match cli.command {
         Commands::Server { config } => {
@@ -150,7 +415,12 @@ async fn main() -> anyhow::Result<()> {
             validate::run_validate(&config, &r#type)?;
         }
         Commands::Status { url, token } => {
-            status::run_status(&url, &token)?;
+            let client = api_client::ApiClient::resolve(
+                url.as_deref().or(global_mgmt_url.as_deref()),
+                token.as_deref().or(global_mgmt_token.as_deref()),
+                global_json,
+            )?;
+            status::run_status(&client)?;
         }
         Commands::SpeedTest {
             server,
@@ -170,8 +440,151 @@ async fn main() -> anyhow::Result<()> {
             bind,
             no_open,
             update,
+            dir,
         } => {
-            dashboard::run_dashboard(mgmt_url, token, port, bind, no_open, update).await?;
+            dashboard::run_dashboard(mgmt_url, token, port, bind, no_open, update, dir).await?;
+        }
+        Commands::Completions { shell } => {
+            completions::generate(shell);
+        }
+
+        // --- Management API commands ---
+        Commands::Clients(cmd) => {
+            let client = api_client::ApiClient::resolve(
+                global_mgmt_url.as_deref(),
+                global_mgmt_token.as_deref(),
+                global_json,
+            )?;
+            match cmd {
+                ClientsCmd::List => clients::list(&client)?,
+                ClientsCmd::Show { id } => clients::show(&client, &id)?,
+                ClientsCmd::Create { name } => clients::create(&client, name.as_deref())?,
+                ClientsCmd::Delete { id, .. } => clients::delete(&client, &id)?,
+                ClientsCmd::Enable { id } => clients::enable(&client, &id)?,
+                ClientsCmd::Disable { id } => clients::disable(&client, &id)?,
+            }
+        }
+        Commands::Connections(cmd) => {
+            let client = api_client::ApiClient::resolve(
+                global_mgmt_url.as_deref(),
+                global_mgmt_token.as_deref(),
+                global_json,
+            )?;
+            match cmd {
+                ConnectionsCmd::List => connections::list(&client)?,
+                ConnectionsCmd::Disconnect { id } => connections::disconnect(&client, &id)?,
+                ConnectionsCmd::Watch { interval } => connections::watch(&client, interval)?,
+            }
+        }
+        Commands::Metrics {
+            watch,
+            history,
+            system,
+            period,
+            interval,
+        } => {
+            let client = api_client::ApiClient::resolve(
+                global_mgmt_url.as_deref(),
+                global_mgmt_token.as_deref(),
+                global_json,
+            )?;
+            if system {
+                metrics::system(&client)?;
+            } else if history {
+                metrics::history(&client, &period)?;
+            } else if watch {
+                metrics::watch(&client, interval)?;
+            } else {
+                metrics::snapshot(&client)?;
+            }
+        }
+        Commands::Bandwidth(cmd) => {
+            let client = api_client::ApiClient::resolve(
+                global_mgmt_url.as_deref(),
+                global_mgmt_token.as_deref(),
+                global_json,
+            )?;
+            match cmd {
+                BandwidthCmd::Summary => bandwidth::summary(&client)?,
+                BandwidthCmd::Get { id } => bandwidth::get(&client, &id)?,
+                BandwidthCmd::Set {
+                    id,
+                    upload,
+                    download,
+                } => bandwidth::set(&client, &id, upload, download)?,
+                BandwidthCmd::Quota { id, limit } => bandwidth::quota(&client, &id, limit)?,
+            }
+        }
+        Commands::Config(cmd) => {
+            let client = api_client::ApiClient::resolve(
+                global_mgmt_url.as_deref(),
+                global_mgmt_token.as_deref(),
+                global_json,
+            )?;
+            match cmd {
+                ConfigCmd::Get => config_ops::get_config(&client)?,
+                ConfigCmd::Set { key, value } => config_ops::set_config(&client, &key, &value)?,
+                ConfigCmd::Tls => config_ops::tls(&client)?,
+                ConfigCmd::Backup(bcmd) => match bcmd {
+                    BackupCmd::Create => config_ops::backup_create(&client)?,
+                    BackupCmd::List => config_ops::backup_list(&client)?,
+                    BackupCmd::Restore { name } => config_ops::backup_restore(&client, &name)?,
+                    BackupCmd::Diff { name } => config_ops::backup_diff(&client, &name)?,
+                    BackupCmd::Delete { name } => config_ops::backup_delete(&client, &name)?,
+                },
+            }
+        }
+        Commands::Routes(cmd) => {
+            let client = api_client::ApiClient::resolve(
+                global_mgmt_url.as_deref(),
+                global_mgmt_token.as_deref(),
+                global_json,
+            )?;
+            match cmd {
+                RoutesCmd::List => routes::list(&client)?,
+                RoutesCmd::Create {
+                    name,
+                    condition,
+                    action,
+                    priority,
+                } => routes::create(&client, &name, &condition, &action, priority)?,
+                RoutesCmd::Update {
+                    id,
+                    condition,
+                    action,
+                    priority,
+                    name,
+                } => routes::update(
+                    &client,
+                    &id,
+                    condition.as_deref(),
+                    action.as_deref(),
+                    priority,
+                    name.as_deref(),
+                )?,
+                RoutesCmd::Delete { id } => routes::delete(&client, &id)?,
+            }
+        }
+        Commands::Logs { level, lines } => {
+            let client = api_client::ApiClient::resolve(
+                global_mgmt_url.as_deref(),
+                global_mgmt_token.as_deref(),
+                global_json,
+            )?;
+            logs::stream(&client, level.as_deref(), lines).await?;
+        }
+        Commands::Ping {
+            config,
+            server,
+            count,
+            interval,
+        } => {
+            let path = resolve_config(&config, "client.toml");
+            diagnostics::ping(path.to_str().unwrap(), server.as_deref(), count, interval).await?;
+        }
+        Commands::TestTransport { config } => {
+            let path = resolve_config(&config, "client.toml");
+            diagnostics::test_transport(path.to_str().unwrap()).await?;
         }
     }
 

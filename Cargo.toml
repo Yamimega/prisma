@@ -3,7 +3,7 @@ members = ["prisma-core", "prisma-server", "prisma-client", "prisma-cli", "prism
 resolver = "2"
 
 [workspace.package]
-version = "0.5.3"
+version = "0.6.1"
 edition = "2021"
 license = "GPLv3.0"
 
@@ -74,7 +74,11 @@ thiserror = "2"
 anyhow = "1"
 
 # CLI
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+
+# Tables
+comfy-table = "7"
 
 # Async utilities
 futures-util = "0.3"

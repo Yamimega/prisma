@@ -7,7 +7,7 @@
 ## 特性亮点
 
 - **PrismaVeil v4 协议** — 1-RTT 握手、0-RTT 恢复，X25519 + BLAKE3 + ChaCha20/AES-256-GCM/Transport-Only
-- **7 种传输方式** — QUIC v2、TCP、WebSocket、gRPC、XHTTP、XPorta（CDN 兼容）、PrismaTLS
+- **6 种传输方式** — QUIC v2、TCP、WebSocket、gRPC、XHTTP、XPorta（CDN 兼容）
 - **TUN 模式** — 通过虚拟网络接口实现系统级代理（Windows/Linux/macOS）
 - **GeoIP 路由** — 基于 v2fly geoip.dat 的国家级智能分流，客户端和服务端均支持
 - **PrismaTLS** — 替代 REALITY 的主动探测防御，浏览器指纹模拟 + 动态掩护服务器池
@@ -37,8 +37,11 @@ curl -fsSL https://raw.githubusercontent.com/Yamimega/prisma/master/scripts/inst
 |------|------|
 | `--version v0.2.1` | 安装指定版本 |
 | `--dir ~/.local/bin` | 自定义安装目录 |
+| `--config-dir DIR` | `--setup` 的配置文件输出目录 |
 | `--uninstall` | 卸载 prisma |
 | `--no-verify` | 跳过 SHA256 校验和验证 |
+| `--force` | 覆盖已有安装而不提示 |
+| `--quiet` | 静默模式，不输出信息 |
 
 完整选项请运行 `install.sh --help` 或 `install.ps1 -Help`。
 

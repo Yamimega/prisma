@@ -282,7 +282,7 @@ pub fn validate_client_config(config: &ClientConfig) -> Result<(), ConfigError> 
         )));
     }
 
-    let valid_transports = ["quic", "tcp", "ws", "grpc", "xhttp", "xporta"];
+    let valid_transports = ["quic", "tcp", "ws", "grpc", "xhttp", "xporta", "prisma-tls"];
     if !valid_transports.contains(&config.transport.as_str()) {
         return Err(ConfigError::ValidationFailed(format!(
             "transport must be one of: {:?}",

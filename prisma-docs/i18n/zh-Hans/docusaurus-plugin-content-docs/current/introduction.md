@@ -5,27 +5,32 @@ slug: /introduction
 
 # 简介
 
-Prisma 是一个基于 Rust 构建的新一代加密代理基础设施套件。它实现了 **PrismaVeil** 线路协议，采用现代密码学原语，支持 QUIC 和 TCP 双重传输，并提供本地 SOCKS5 和 HTTP CONNECT 代理接口。
+Prisma 是一个基于 Rust 构建的新一代加密代理基础设施套件。它实现了 **PrismaVeil v4** 线路协议，融合现代密码学、多种传输方式和高级抗审查特性。
 
 ## 功能特性
 
-- **双重传输** — QUIC（主要）+ TCP 备用，适用于 UDP 被阻断的网络
+- **PrismaVeil v4 协议** — 1-RTT 握手、0-RTT 恢复，X25519 + BLAKE3 + ChaCha20-Poly1305 / AES-256-GCM / Transport-Only 加密模式
+- **6 种传输方式** — QUIC v2、TCP、WebSocket、gRPC、XHTTP、XPorta（CDN 兼容），支持自动回退
 - **双重加密** — 在 QUIC/TLS 内嵌入 PrismaVeil 加密，实现纵深防御
 - **现代密码学** — X25519 ECDH、BLAKE3 KDF、ChaCha20-Poly1305 / AES-256-GCM AEAD
-- **HMAC-SHA256 身份认证**，采用常量时间比较
 - **抗重放保护** — 基于 1024 位滑动窗口
+- **TUN 模式** — 通过虚拟网络接口实现系统级代理（Windows/Linux/macOS）
+- **GeoIP 路由** — 基于 v2fly geoip.dat 的国家级智能分流，客户端和服务端均支持
+- **智能 DNS** — Fake IP、隧道、智能（GeoSite）和直连模式
 - **流量整形** — 桶填充、杂音注入、时序抖动、帧合并
 - **PrismaTLS** — 主动探测抵抗，通过 padding 信标认证、掩护服务器池、浏览器指纹模拟
-- **熵伪装** — 通过字节分布整形实现 GFW 豁免
-- **伪装（抗主动探测）** — TLS-on-TCP 包裹、诱饵回落、标准 ALPN
+- **熵伪装** — 通过字节分布整形实现 DPI 豁免
+- **抗审查** — Salamander UDP 混淆、HTTP/3 伪装、端口跳跃、TLS 伪装
 - **XPorta 传输** — 新一代 CDN 传输，与普通 REST API 流量无法区分
 - **SOCKS5 代理接口**（RFC 1928），兼容各类应用程序
 - **HTTP CONNECT 代理** — 适用于浏览器和 HTTP 感知客户端
 - **端口转发 / 反向代理** — 通过服务器暴露本地服务（frp 风格）
-- **路由规则引擎** — 基于域名/IP/端口的允许/阻止过滤
+- **路由规则引擎** — 基于域名/IP/端口/GeoIP 的允许/阻止过滤，客户端和服务端均支持
+- **PrismaUDP** — UDP 中继，支持 FEC Reed-Solomon 前向纠错
+- **拥塞控制** — BBR、Brutal 和 Adaptive 模式（QUIC）
 - **管理 API** — REST + WebSocket API，用于实时监控和控制
-- **Web 仪表盘** — 基于 Next.js 的实时仪表盘，包含指标、客户端管理和日志流
-- **DNS 缓存**，支持异步解析
+- **Web 仪表盘** — 基于 Next.js + shadcn/ui 的实时仪表盘，包含指标、客户端管理和日志流
+- **按客户端带宽和配额限制** — 上传/下载速率限制和可配置配额
 - **连接背压** — 通过可配置的最大连接数限制实现
 - **结构化日志**（pretty 或 JSON 格式），基于 `tracing`，支持广播
 
@@ -35,13 +40,14 @@ Prisma 由六个 crate 和一个仪表盘组成：
 
 ```
 prisma/
-├── prisma-core/       # 共享库：加密、协议、配置、类型、状态
-├── prisma-server/     # 代理服务端（TCP + QUIC 入站）
-├── prisma-client/     # 代理客户端（SOCKS5 + HTTP CONNECT 入站）
+├── prisma-core/       # 共享库：加密、协议、配置、DNS、路由、GeoIP
+├── prisma-server/     # 代理服务端（TCP、QUIC、CDN 入站）
+├── prisma-client/     # 代理客户端（SOCKS5、HTTP CONNECT、TUN 入站）
 ├── prisma-mgmt/       # 管理 API（REST + WebSocket，基于 axum）
-├── prisma-cli/        # CLI 工具，包含密钥/证书生成
+├── prisma-cli/        # CLI 工具：密钥/证书生成、初始化、校验
 ├── prisma-dashboard/  # Web 仪表盘（Next.js + shadcn/ui）
-└── prisma-docs/       # 文档站点（Docusaurus）
+├── prisma-docs/       # 文档站点（Docusaurus）
+└── scripts/           # 安装脚本和基准测试
 ```
 
 ### 数据流 — 出站代理

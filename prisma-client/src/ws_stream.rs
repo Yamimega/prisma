@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -9,11 +10,16 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 
+type ReserveFut<T> = Pin<
+    Box<dyn Future<Output = Result<mpsc::OwnedPermit<T>, mpsc::error::SendError<()>>> + Send>,
+>;
+
 /// Adapter that bridges a tokio-tungstenite WebSocket into AsyncRead + AsyncWrite.
 pub struct WsStream {
     read_rx: mpsc::Receiver<bytes::Bytes>,
     write_tx: mpsc::Sender<bytes::Bytes>,
     read_buf: BytesMut,
+    write_reserve: Option<ReserveFut<bytes::Bytes>>,
 }
 
 impl WsStream {
@@ -22,8 +28,8 @@ impl WsStream {
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     {
         let (ws_sink, ws_stream) = socket.split();
-        let (read_tx, read_rx) = mpsc::channel::<bytes::Bytes>(64);
-        let (write_tx, write_rx) = mpsc::channel::<bytes::Bytes>(64);
+        let (read_tx, read_rx) = mpsc::channel::<bytes::Bytes>(256);
+        let (write_tx, write_rx) = mpsc::channel::<bytes::Bytes>(256);
 
         tokio::spawn(Self::read_loop(ws_stream, read_tx));
         tokio::spawn(Self::write_loop(ws_sink, write_rx));
@@ -32,6 +38,7 @@ impl WsStream {
             read_rx,
             write_tx,
             read_buf: BytesMut::new(),
+            write_reserve: None,
         }
     }
 
@@ -61,11 +68,7 @@ impl WsStream {
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     {
         while let Some(data) = rx.recv().await {
-            if ws_sink
-                .send(Message::Binary(data.to_vec().into()))
-                .await
-                .is_err()
-            {
+            if ws_sink.send(Message::Binary(data)).await.is_err() {
                 break;
             }
         }
@@ -107,22 +110,26 @@ impl AsyncWrite for WsStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        match self.write_tx.try_send(bytes::Bytes::copy_from_slice(buf)) {
-            Ok(()) => Poll::Ready(Ok(buf.len())),
-            Err(mpsc::error::TrySendError::Full(_)) => {
-                let tx = self.write_tx.clone();
-                let data = bytes::Bytes::copy_from_slice(buf);
-                let waker = cx.waker().clone();
-                tokio::spawn(async move {
-                    let _ = tx.send(data).await;
-                    waker.wake();
-                });
-                Poll::Pending
+        let this = self.get_mut();
+
+        let mut fut = this
+            .write_reserve
+            .take()
+            .unwrap_or_else(|| Box::pin(this.write_tx.clone().reserve_owned()));
+
+        match fut.as_mut().poll(cx) {
+            Poll::Ready(Ok(permit)) => {
+                permit.send(bytes::Bytes::copy_from_slice(buf));
+                Poll::Ready(Ok(buf.len()))
             }
-            Err(mpsc::error::TrySendError::Closed(_)) => Poll::Ready(Err(std::io::Error::new(
+            Poll::Ready(Err(_)) => Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::BrokenPipe,
                 "WebSocket closed",
             ))),
+            Poll::Pending => {
+                this.write_reserve = Some(fut);
+                Poll::Pending
+            }
         }
     }
 

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::grpc_stream::GrpcStream;
 use crate::ws_stream::WsStream;
@@ -151,6 +151,10 @@ pub async fn connect_quic(
 ///
 /// QUIC v2 uses version number 0x6b3343cf and is currently not targeted by
 /// GFW's QUIC Initial decryption (which only handles v1).
+///
+/// When `prefer_v2 = true` and the server does not support QUIC v2 (responds
+/// with a Version Negotiation packet or rejects the version), this function
+/// automatically retries with QUIC v1. Quinn does not retry automatically.
 pub async fn connect_quic_versioned(
     server_addr: &str,
     skip_cert_verify: bool,
@@ -162,21 +166,71 @@ pub async fn connect_quic_versioned(
 ) -> Result<TransportStream> {
     debug!(addr = %server_addr, quic_v2 = prefer_v2, "Connecting to server via QUIC");
 
+    let result = connect_quic_attempt(
+        server_addr,
+        skip_cert_verify,
+        alpn_protocols,
+        server_name,
+        congestion_mode,
+        salamander_password,
+        prefer_v2,
+    )
+    .await;
+
+    // If v2 was preferred but failed due to version negotiation, fall back to v1.
+    // Quinn does not retry automatically when a Version Negotiation packet is received.
+    if prefer_v2 {
+        if let Err(ref e) = result {
+            let msg = e.to_string();
+            if msg.contains("unsupported QUIC version")
+                || msg.contains("peer doesn't implement any supported version")
+                || msg.contains("VersionMismatch")
+            {
+                info!(
+                    addr = %server_addr,
+                    "QUIC v2 not supported by server, falling back to v1"
+                );
+                return connect_quic_attempt(
+                    server_addr,
+                    skip_cert_verify,
+                    alpn_protocols,
+                    server_name,
+                    congestion_mode,
+                    salamander_password,
+                    false,
+                )
+                .await;
+            }
+        }
+    }
+
+    result
+}
+
+async fn connect_quic_attempt(
+    server_addr: &str,
+    skip_cert_verify: bool,
+    alpn_protocols: &[String],
+    server_name: &str,
+    congestion_mode: &prisma_core::congestion::CongestionMode,
+    salamander_password: Option<&str>,
+    use_v2: bool,
+) -> Result<TransportStream> {
     let tls_config = build_client_tls_config(skip_cert_verify, alpn_protocols);
 
     let mut client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config)?,
     ));
 
-    // Apply congestion control and QUIC v2 configuration
+    // Apply congestion control configuration
     let mut transport_config = quinn::TransportConfig::default();
     transport_config.congestion_controller_factory(congestion_mode.build_factory());
     client_config.transport_config(Arc::new(transport_config));
 
-    // Configure QUIC version preference
-    if prefer_v2 {
+    // Configure QUIC version
+    if use_v2 {
         client_config.version(prisma_core::types::QUIC_VERSION_2);
-        debug!("QUIC Version 2 (RFC 9369) preferred");
+        debug!("QUIC Version 2 (RFC 9369)");
     }
 
     let bind_addr: std::net::SocketAddr = "0.0.0.0:0".parse()?;
@@ -186,7 +240,6 @@ pub async fn connect_quic_versioned(
     let socket = std::net::UdpSocket::bind(bind_addr)?;
     let udp_socket = runtime.wrap_udp_socket(socket)?;
 
-    // Optionally wrap with Salamander obfuscation
     let socket: Arc<dyn quinn::AsyncUdpSocket> = if let Some(password) = salamander_password {
         debug!("Salamander UDP obfuscation enabled");
         prisma_core::salamander::SalamanderSocket::wrap(udp_socket, password.as_bytes())
@@ -194,18 +247,12 @@ pub async fn connect_quic_versioned(
         udp_socket
     };
 
-    // Support both QUIC v1 and v2 so version negotiation works for either.
+    // List both versions so the endpoint accepts v1 and v2 during negotiation.
     let mut endpoint_config = quinn::EndpointConfig::default();
-    if prefer_v2 {
-        endpoint_config.supported_versions(vec![1, prisma_core::types::QUIC_VERSION_2]);
-    }
+    endpoint_config.supported_versions(vec![1, prisma_core::types::QUIC_VERSION_2]);
 
-    let mut endpoint = quinn::Endpoint::new_with_abstract_socket(
-        endpoint_config,
-        None,
-        socket,
-        runtime,
-    )?;
+    let mut endpoint =
+        quinn::Endpoint::new_with_abstract_socket(endpoint_config, None, socket, runtime)?;
     endpoint.set_default_client_config(client_config);
 
     let addr = server_addr.parse()?;
@@ -324,7 +371,7 @@ pub async fn connect_grpc(grpc_url: &str) -> Result<TransportStream> {
     let mut client = PrismaTunnelClient::new(channel);
 
     // Create a channel for outbound messages
-    let (outbound_tx, outbound_rx) = mpsc::channel::<TunnelData>(64);
+    let (outbound_tx, outbound_rx) = mpsc::channel::<TunnelData>(256);
     let outbound_stream = tokio_stream::wrappers::ReceiverStream::new(outbound_rx);
 
     let response = client
@@ -428,7 +475,7 @@ where
 
     // Create a streaming body from upload channel
     let (body_tx, body_rx) =
-        mpsc::channel::<Result<Frame<bytes::Bytes>, std::convert::Infallible>>(64);
+        mpsc::channel::<Result<Frame<bytes::Bytes>, std::convert::Infallible>>(256);
     let body = StreamBody::new(tokio_stream::wrappers::ReceiverStream::new(body_rx));
 
     let req = req_builder
