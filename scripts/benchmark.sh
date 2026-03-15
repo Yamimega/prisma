@@ -104,7 +104,6 @@ server_addr = "127.0.0.1:18443"
 transport = "quic"
 skip_cert_verify = true
 protocol_version = "v4"
-fingerprint = "chrome"
 quic_version = "v1"
 
 [identity]
@@ -139,9 +138,9 @@ socks5_listen_addr = "127.0.0.1:11082"
 server_addr = "127.0.0.1:18445"
 transport = "tcp"
 tls_on_tcp = true
+tls_server_name = "benchmark.local"
 skip_cert_verify = true
 protocol_version = "v4"
-fingerprint = "chrome"
 
 [identity]
 client_id = "$CLIENT_ID"
@@ -164,8 +163,7 @@ auth_secret = "$AUTH_SECRET"
 name = "bench-client"
 
 [traffic_shaping]
-padding_mode = "bucket"
-bucket_sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+padding_mode = "random"
 EOF
 
     cat > "$RESULTS_DIR/client-shaped.toml" <<EOF
@@ -174,7 +172,6 @@ server_addr = "127.0.0.1:18444"
 transport = "quic"
 skip_cert_verify = true
 protocol_version = "v4"
-fingerprint = "chrome"
 quic_version = "v1"
 
 [identity]
