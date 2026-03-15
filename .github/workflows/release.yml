@@ -202,6 +202,124 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Generate release notes
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+          INSTALL_URL="https://raw.githubusercontent.com/${REPO}/master/scripts"
+
+          # Previous tag for the commit range and comparison link
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || true)
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..HEAD"
+            COMPARE_URL="https://github.com/${REPO}/compare/${PREV_TAG}...${TAG}"
+          else
+            RANGE="HEAD"
+            COMPARE_URL="https://github.com/${REPO}/commits/${TAG}"
+          fi
+
+          # Categorize commits by conventional-commit prefix; strip the type+scope prefix
+          strip() { sed -E 's/^- [a-z]+(\([^)]+\))?!?: /- /'; }
+          FEATS=$(git log "$RANGE" --pretty=format:"- %s" --no-merges 2>/dev/null \
+            | grep -E "^- feat" | strip || true)
+          FIXES=$(git log "$RANGE" --pretty=format:"- %s" --no-merges 2>/dev/null \
+            | grep -E "^- fix" | strip || true)
+          PERFS=$(git log "$RANGE" --pretty=format:"- %s" --no-merges 2>/dev/null \
+            | grep -E "^- perf" | strip || true)
+          REFACTORS=$(git log "$RANGE" --pretty=format:"- %s" --no-merges 2>/dev/null \
+            | grep -E "^- refactor" | strip || true)
+          OTHERS=$(git log "$RANGE" --pretty=format:"- %s" --no-merges 2>/dev/null \
+            | grep -Ev "^- (feat|fix|perf|refactor|chore|docs|ci|test|build|style|bench)" || true)
+
+          CHECKSUMS=$(cat release/checksums-sha256.txt)
+
+          {
+            echo "## What's Changed"
+            echo ""
+
+            if [ -n "$FEATS" ]; then
+              echo "### ✨ New Features"
+              echo ""
+              echo "$FEATS"
+              echo ""
+            fi
+
+            if [ -n "$FIXES" ]; then
+              echo "### 🐛 Bug Fixes"
+              echo ""
+              echo "$FIXES"
+              echo ""
+            fi
+
+            if [ -n "$PERFS" ]; then
+              echo "### ⚡ Performance"
+              echo ""
+              echo "$PERFS"
+              echo ""
+            fi
+
+            if [ -n "$REFACTORS" ]; then
+              echo "### 🔧 Refactoring"
+              echo ""
+              echo "$REFACTORS"
+              echo ""
+            fi
+
+            if [ -n "$OTHERS" ]; then
+              echo "### 📝 Other Changes"
+              echo ""
+              echo "$OTHERS"
+              echo ""
+            fi
+
+            echo "---"
+            echo ""
+            echo "## 📦 Installation"
+            echo ""
+            echo "### Quick Install"
+            echo ""
+            echo "**Linux / macOS / FreeBSD:**"
+            echo '```bash'
+            echo "curl -fsSL ${INSTALL_URL}/install.sh | bash"
+            echo '```'
+            echo ""
+            echo "**Windows (PowerShell):**"
+            echo '```powershell'
+            echo "irm ${INSTALL_URL}/install.ps1 | iex"
+            echo '```'
+            echo ""
+            echo "### Manual Download"
+            echo ""
+            echo "| Platform | Architecture | Binary |"
+            echo "|----------|-------------|--------|"
+            echo "| 🐧 Linux | x86\_64 | [prisma-linux-amd64](${BASE_URL}/prisma-linux-amd64) |"
+            echo "| 🐧 Linux | ARM64 | [prisma-linux-arm64](${BASE_URL}/prisma-linux-arm64) |"
+            echo "| 🐧 Linux | ARMv7 | [prisma-linux-armv7](${BASE_URL}/prisma-linux-armv7) |"
+            echo "| 🍎 macOS | Intel | [prisma-darwin-amd64](${BASE_URL}/prisma-darwin-amd64) |"
+            echo "| 🍎 macOS | Apple Silicon | [prisma-darwin-arm64](${BASE_URL}/prisma-darwin-arm64) |"
+            echo "| 🪟 Windows | x86\_64 | [prisma-windows-amd64.exe](${BASE_URL}/prisma-windows-amd64.exe) |"
+            echo "| 🪟 Windows | ARM64 | [prisma-windows-arm64.exe](${BASE_URL}/prisma-windows-arm64.exe) |"
+            echo "| 😈 FreeBSD | x86\_64 | [prisma-freebsd-amd64](${BASE_URL}/prisma-freebsd-amd64) |"
+            echo ""
+            echo "> Verify integrity: \`sha256sum -c checksums-sha256.txt\` (Linux/macOS) · \`Get-FileHash\` (Windows)"
+            echo ""
+            echo "---"
+            echo ""
+            echo "## 🔒 SHA256 Checksums"
+            echo ""
+            echo '```'
+            echo "$CHECKSUMS"
+            echo '```'
+            echo ""
+            echo "---"
+            echo ""
+            echo "**Full Changelog**: ${COMPARE_URL}"
+          } > release-notes.md
+
+          echo "=== Release Notes Preview ==="
+          cat release-notes.md
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -209,6 +327,6 @@ jobs:
           TAG="${{ steps.tag.outputs.tag }}"
           gh release create "$TAG" \
             --title "Prisma $TAG" \
-            --generate-notes \
+            --notes-file release-notes.md \
             release/prisma-* \
             release/checksums-sha256.txt

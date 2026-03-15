@@ -356,8 +356,43 @@ prisma routes <SUBCOMMAND>
 | `create --name NAME --condition COND --action ACTION [--priority N]` | Create a routing rule |
 | `update <ID> [--condition COND] [--action ACTION] [--priority N] [--name NAME]` | Update a routing rule |
 | `delete <ID>` | Delete a routing rule |
+| `setup <PRESET> [--clear]` | Apply a predefined rule preset |
 
 Condition format: `TYPE:VALUE`, e.g. `DomainMatch:*.ads.*`, `IpCidr:10.0.0.0/8`, `PortRange:80-443`, `All`.
+
+### `prisma routes setup`
+
+Applies a named preset — a curated set of rules created in one command.
+
+```bash
+prisma routes setup <PRESET> [--clear]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--clear` | Delete all existing rules before applying the preset |
+
+Available presets:
+
+| Preset | Rules | Description |
+|--------|-------|-------------|
+| `block-ads` | 10 | Block common advertising and ad-network domains |
+| `privacy` | 19 | Block ads + analytics/telemetry trackers |
+| `allow-all` | 1 | Add a catch-all Allow rule (priority 1000) |
+| `block-all` | 1 | Add a catch-all Block rule (priority 1000) |
+
+Example:
+
+```bash
+# Block all ads, clearing any old rules first
+prisma routes setup block-ads --clear
+
+# Apply privacy preset on top of existing rules
+prisma routes setup privacy
+
+# Reset to a single allow-all rule
+prisma routes setup allow-all --clear
+```
 
 ## `prisma logs`
 

@@ -356,8 +356,43 @@ prisma routes <SUBCOMMAND>
 | `create --name NAME --condition COND --action ACTION [--priority N]` | 创建路由规则 |
 | `update <ID> [--condition COND] [--action ACTION] [--priority N] [--name NAME]` | 更新路由规则 |
 | `delete <ID>` | 删除路由规则 |
+| `setup <PRESET> [--clear]` | 应用预定义规则预设 |
 
 条件格式：`TYPE:VALUE`，例如 `DomainMatch:*.ads.*`、`IpCidr:10.0.0.0/8`、`PortRange:80-443`、`All`。
+
+### `prisma routes setup`
+
+一键应用命名预设——批量创建一组精选规则。
+
+```bash
+prisma routes setup <PRESET> [--clear]
+```
+
+| 参数 | 描述 |
+|------|------|
+| `--clear` | 应用预设前删除所有已有规则 |
+
+可用预设：
+
+| 预设 | 规则数 | 描述 |
+|------|--------|------|
+| `block-ads` | 10 | 屏蔽常见广告和广告网络域名 |
+| `privacy` | 19 | 屏蔽广告 + 分析/遥测追踪器 |
+| `allow-all` | 1 | 添加全匹配 Allow 规则（优先级 1000） |
+| `block-all` | 1 | 添加全匹配 Block 规则（优先级 1000） |
+
+示例：
+
+```bash
+# 清空旧规则并应用广告屏蔽预设
+prisma routes setup block-ads --clear
+
+# 在现有规则基础上叠加隐私预设
+prisma routes setup privacy
+
+# 重置为单条 allow-all 规则
+prisma routes setup allow-all --clear
+```
 
 ## `prisma logs`
 

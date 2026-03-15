@@ -375,6 +375,14 @@ enum RoutesCmd {
         /// Rule ID
         id: String,
     },
+    /// Apply a predefined routing rule preset
+    Setup {
+        /// Preset name: block-ads, privacy, allow-all, block-all
+        preset: String,
+        /// Delete all existing rules before applying preset
+        #[arg(long)]
+        clear: bool,
+    },
 }
 
 #[tokio::main]
@@ -563,6 +571,7 @@ async fn main() -> anyhow::Result<()> {
                     name.as_deref(),
                 )?,
                 RoutesCmd::Delete { id } => routes::delete(&client, &id)?,
+                RoutesCmd::Setup { preset, clear } => routes::setup(&client, &preset, clear)?,
             }
         }
         Commands::Logs { level, lines } => {
