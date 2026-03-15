@@ -31,7 +31,7 @@ pub fn has_ascii_prefix(data: &[u8], min_len: usize) -> bool {
     if data.len() < min_len {
         return false;
     }
-    data[..min_len].iter().all(|&b| b >= 0x20 && b <= 0x7E)
+    data[..min_len].iter().all(|&b| (0x20..=0x7E).contains(&b))
 }
 
 /// Compute the average popcount (number of 1-bits per byte) of a byte slice.
