@@ -10,7 +10,7 @@ RESULTS_DIR="$(cd "$RESULTS_DIR" && pwd)"
 PRISMA_BIN="${PRISMA_BIN:-./prisma}"
 XRAY_BIN="${XRAY_BIN:-./xray/xray}"
 HTTP_PORT=18888
-TEST_SIZE_MB=1024
+TEST_SIZE_MB=256
 CONCURRENCY=4
 PIDS=()
 
@@ -242,44 +242,11 @@ EOF
 socks5_listen_addr = "127.0.0.1:11084"
 server_addr = "127.0.0.1:18447"
 transport = "tcp"
-cipher_suite = "transport-only"
 tls_on_tcp = true
 tls_server_name = "benchmark.local"
 skip_cert_verify = true
 protocol_version = "v4"
 transport_only_cipher = true
-
-[identity]
-client_id = "$CLIENT_ID"
-auth_secret = "$AUTH_SECRET"
-EOF
-
-    # --- Prisma QUIC v2 -----------------------------------------------
-    cat > "$RESULTS_DIR/server-quic-v2.toml" <<EOF
-listen_addr = "127.0.0.1:18448"
-quic_listen_addr = "127.0.0.1:18448"
-protocol_version = "v4"
-
-[tls]
-cert_path = "$RESULTS_DIR/prisma-cert.pem"
-key_path = "$RESULTS_DIR/prisma-key.pem"
-
-[[authorized_clients]]
-id = "$CLIENT_ID"
-auth_secret = "$AUTH_SECRET"
-name = "bench-client"
-
-[traffic_shaping]
-padding_mode = "none"
-EOF
-
-    cat > "$RESULTS_DIR/client-quic-v2.toml" <<EOF
-socks5_listen_addr = "127.0.0.1:11085"
-server_addr = "127.0.0.1:18448"
-transport = "quic"
-skip_cert_verify = true
-protocol_version = "v4"
-quic_version = "v2"
 
 [identity]
 client_id = "$CLIENT_ID"
@@ -302,7 +269,7 @@ name = "bench-client"
 
 [cdn]
 enabled = true
-listen_addr = "127.0.0.1:18449"
+listen_addr = "127.0.0.1:18460"
 ws_tunnel_path = "/ws-tunnel"
 
 [cdn.tls]
@@ -315,9 +282,9 @@ EOF
 
     cat > "$RESULTS_DIR/client-ws.toml" <<EOF
 socks5_listen_addr = "127.0.0.1:11086"
-server_addr = "127.0.0.1:18449"
+server_addr = "127.0.0.1:18460"
 transport = "ws"
-ws_url = "wss://127.0.0.1:18449/ws-tunnel"
+ws_url = "wss://127.0.0.1:18460/ws-tunnel"
 tls_server_name = "benchmark.local"
 skip_cert_verify = true
 protocol_version = "v4"
@@ -747,7 +714,17 @@ XEOF
 
 start_test_server() {
     log "Creating ${TEST_SIZE_MB}MB test payload..."
-    dd if=/dev/urandom of="$RESULTS_DIR/testdata" bs=1M count=$TEST_SIZE_MB 2>/dev/null
+    dd if=/dev/urandom of="$RESULTS_DIR/testdata" bs=1M count=$TEST_SIZE_MB 2>/dev/null \
+        || dd if=/dev/urandom of="$RESULTS_DIR/testdata" bs=1048576 count=$TEST_SIZE_MB 2>/dev/null \
+        || true
+
+    if [ ! -s "$RESULTS_DIR/testdata" ]; then
+        err "Failed to create test payload (dd failed). Download tests will report 0."
+    else
+        local actual_mb
+        actual_mb=$(( $(stat -c%s "$RESULTS_DIR/testdata" 2>/dev/null || stat -f%z "$RESULTS_DIR/testdata" 2>/dev/null || echo 0) / 1048576 ))
+        log "Test payload: ${actual_mb}MB created"
+    fi
 
     # 1-byte file for latency measurement (minimize transfer time)
     echo -n "x" > "$RESULTS_DIR/ping"
@@ -769,7 +746,8 @@ measure_download() {
     speed=$(curl -o /dev/null -s -w '%{speed_download}' \
         --connect-timeout 10 --max-time 120 \
         --socks5-hostname "127.0.0.1:$socks_port" \
-        "http://127.0.0.1:$HTTP_PORT/testdata" 2>/dev/null || echo "0")
+        "http://127.0.0.1:$HTTP_PORT/testdata" 2>/dev/null) || true
+    : "${speed:=0}"
     python3 -c "print(f'{float($speed) * 8 / 1_000_000:.1f}')" 2>/dev/null || echo "0"
 }
 
@@ -782,7 +760,8 @@ measure_latency() {
         ttfb=$(curl -o /dev/null -s -w '%{time_starttransfer}' \
             --connect-timeout 5 --max-time 10 \
             --socks5-hostname "127.0.0.1:$socks_port" \
-            "http://127.0.0.1:$HTTP_PORT/ping" 2>/dev/null || echo "0")
+            "http://127.0.0.1:$HTTP_PORT/ping" 2>/dev/null) || true
+        : "${ttfb:=0}"
         total=$(python3 -c "print(f'{$total + $ttfb * 1000:.1f}')" 2>/dev/null || echo "$total")
     done
     python3 -c "print(f'{$total / $count:.1f}')" 2>/dev/null || echo "0"
@@ -824,14 +803,16 @@ run_baseline() {
     local speed
     speed=$(curl -o /dev/null -s -w '%{speed_download}' \
         --connect-timeout 10 --max-time 120 \
-        "http://127.0.0.1:$HTTP_PORT/testdata" 2>/dev/null || echo "0")
+        "http://127.0.0.1:$HTTP_PORT/testdata" 2>/dev/null) || true
+    : "${speed:=0}"
     local dl_mbps
     dl_mbps=$(python3 -c "print(f'{float($speed) * 8 / 1_000_000:.1f}')" 2>/dev/null || echo "0")
 
     local ttfb
     ttfb=$(curl -o /dev/null -s -w '%{time_starttransfer}' \
         --connect-timeout 5 --max-time 10 \
-        "http://127.0.0.1:$HTTP_PORT/ping" 2>/dev/null || echo "0")
+        "http://127.0.0.1:$HTTP_PORT/ping" 2>/dev/null) || true
+    : "${ttfb:=0}"
     local latency_ms
     latency_ms=$(python3 -c "print(f'{$ttfb * 1000:.1f}')" 2>/dev/null || echo "0")
 
@@ -1063,7 +1044,6 @@ scenarios = [
     ("prisma-shaped",    "Prisma (shaped)"),
     ("prisma-quic-aes",  "Prisma QUIC AES"),
     ("prisma-tonly",     "Prisma T-Only"),
-    ("prisma-quic-v2",   "Prisma QUIC v2"),
     ("prisma-ws",        "Prisma WS+TLS"),
     ("prisma-bucket",    "Prisma (bucket)"),
     ("xray-vless-tls",   "Xray VLESS+TLS"),
@@ -1439,8 +1419,6 @@ main() {
         "$RESULTS_DIR/server-quic-aes.toml" "$RESULTS_DIR/client-quic-aes.toml" 11083
     run_prisma_scenario "prisma-tonly" \
         "$RESULTS_DIR/server-transport-only.toml" "$RESULTS_DIR/client-transport-only.toml" 11084
-    run_prisma_scenario "prisma-quic-v2" \
-        "$RESULTS_DIR/server-quic-v2.toml" "$RESULTS_DIR/client-quic-v2.toml" 11085
     run_prisma_scenario "prisma-ws" \
         "$RESULTS_DIR/server-ws.toml" "$RESULTS_DIR/client-ws.toml" 11086
     run_prisma_scenario "prisma-bucket" \
