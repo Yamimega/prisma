@@ -4,7 +4,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tracing::{debug, warn};
 
-use prisma_core::protocol::frame_encoder::{FrameDecoder, FrameEncoder};
+use prisma_core::protocol::frame_encoder::{FrameDecoder, FrameEncoder, MAX_PAYLOAD_SIZE};
 use prisma_core::protocol::types::*;
 use prisma_core::types::MAX_FRAME_SIZE;
 
@@ -31,8 +31,7 @@ pub async fn relay(socks_stream: TcpStream, tunnel: TunnelConnection) -> Result<
     let cipher_s2t = cipher.clone();
     let socks_to_tunnel = async move {
         let mut encoder = FrameEncoder::new();
-        // 32KB read buffer (4x larger than default 8KB)
-        let mut buf = vec![0u8; 32768];
+        let mut buf = vec![0u8; MAX_PAYLOAD_SIZE];
         loop {
             match socks_read.read(&mut buf).await {
                 Ok(0) => break,
@@ -137,7 +136,7 @@ where
     let mut interval = tokio::time::interval(std::time::Duration::from_millis(5));
 
     let mut encoder = FrameEncoder::new();
-    let mut local_buf = vec![0u8; 32768];
+    let mut local_buf = vec![0u8; MAX_PAYLOAD_SIZE];
     let mut frame_buf = vec![0u8; MAX_FRAME_SIZE];
 
     loop {

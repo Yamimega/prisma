@@ -15,6 +15,12 @@ const PADDED_HEADER_SIZE: usize = 9;
 /// Wire overhead: outer_len(2) + nonce(12) + inner_len(2) + tag(16) = 32
 const WIRE_OVERHEAD: usize = 2 + NONCE_SIZE + 2 + TAG_SIZE;
 
+/// Maximum payload bytes that can safely be written into `payload_mut()`.
+///
+/// Accounts for frame header and max possible padding so that the
+/// resulting wire frame never exceeds `MAX_FRAME_SIZE`.
+pub const MAX_PAYLOAD_SIZE: usize = MAX_FRAME_SIZE - NONCE_SIZE - 2 - TAG_SIZE - PADDED_HEADER_SIZE - crate::types::MAX_PADDING_SIZE;
+
 /// Pre-allocated frame encoder for the send (encrypt) direction.
 ///
 /// Eliminates all hot-path heap allocations by encoding the frame header,

@@ -9,7 +9,7 @@ use tracing::{debug, warn};
 use prisma_core::crypto::aead::AeadCipher;
 use prisma_core::protocol::anti_replay::AntiReplayWindow;
 use prisma_core::protocol::codec::*;
-use prisma_core::protocol::frame_encoder::{FrameDecoder, FrameEncoder};
+use prisma_core::protocol::frame_encoder::{FrameDecoder, FrameEncoder, MAX_PAYLOAD_SIZE};
 use prisma_core::protocol::types::*;
 use prisma_core::types::MAX_FRAME_SIZE;
 
@@ -184,8 +184,7 @@ where
     let dest_to_tunnel = tokio::spawn(async move {
         let mut tunnel_write = tunnel_write;
         let mut encoder = FrameEncoder::new();
-        // 32KB read buffer (4x larger than default 8KB)
-        let mut buf = vec![0u8; 32768];
+        let mut buf = vec![0u8; MAX_PAYLOAD_SIZE];
 
         loop {
             tokio::select! {
