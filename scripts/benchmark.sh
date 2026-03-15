@@ -5,11 +5,12 @@ set -euo pipefail
 
 RESULTS_DIR="benchmark-results"
 mkdir -p "$RESULTS_DIR"
+RESULTS_DIR="$(cd "$RESULTS_DIR" && pwd)"
 
 PRISMA_BIN="${PRISMA_BIN:-./prisma}"
 XRAY_BIN="${XRAY_BIN:-./xray/xray}"
 HTTP_PORT=18888
-TEST_SIZE_MB=100
+TEST_SIZE_MB=5120
 PIDS=()
 
 GREEN='\033[0;32m'
@@ -212,7 +213,7 @@ measure_download() {
     local socks_port=$1
     local speed
     speed=$(curl -o /dev/null -s -w '%{speed_download}' \
-        --connect-timeout 10 --max-time 120 \
+        --connect-timeout 10 --max-time 600 \
         --socks5-hostname "127.0.0.1:$socks_port" \
         "http://127.0.0.1:$HTTP_PORT/testdata" 2>/dev/null || echo "0")
     python3 -c "print(f'{float($speed) * 8 / 1_000_000:.1f}')" 2>/dev/null || echo "0"
@@ -223,7 +224,7 @@ run_baseline() {
     log "=== Baseline (no proxy) ==="
     local speed
     speed=$(curl -o /dev/null -s -w '%{speed_download}' \
-        --connect-timeout 10 --max-time 120 \
+        --connect-timeout 10 --max-time 600 \
         "http://127.0.0.1:$HTTP_PORT/testdata" 2>/dev/null || echo "0")
     local dl_mbps
     dl_mbps=$(python3 -c "print(f'{float($speed) * 8 / 1_000_000:.1f}')" 2>/dev/null || echo "0")
@@ -237,11 +238,13 @@ run_prisma_scenario() {
 
     log "=== $label ==="
 
-    "$PRISMA_BIN" server -c "$server_cfg" > /dev/null 2>&1 &
+    "$PRISMA_BIN" server -c "$server_cfg" \
+        > "$RESULTS_DIR/${label}-server.log" 2>&1 &
     local srv=$!; PIDS+=($srv)
     sleep 2
 
-    "$PRISMA_BIN" client -c "$client_cfg" > /dev/null 2>&1 &
+    "$PRISMA_BIN" client -c "$client_cfg" \
+        > "$RESULTS_DIR/${label}-client.log" 2>&1 &
     local cli=$!; PIDS+=($cli)
     wait_for_port "$socks_port"
 
@@ -275,13 +278,29 @@ run_xray_scenario() {
 
     log "=== Xray VLESS+TLS ==="
 
-    "$XRAY_BIN" run -c "$RESULTS_DIR/xray-server.json" > /dev/null 2>&1 &
+    "$XRAY_BIN" run -c "$RESULTS_DIR/xray-server.json" \
+        > "$RESULTS_DIR/xray-server.log" 2>&1 &
     local srv=$!; PIDS+=($srv)
-    wait_for_port 28443
+    if ! wait_for_port 28443 15; then
+        err "Xray server failed to start. Log:"
+        tail -20 "$RESULTS_DIR/xray-server.log" >&2 || true
+        kill $srv 2>/dev/null || true
+        echo '{"label":"xray-vless","download_mbps":0,"memory_kb":0}' \
+            > "$RESULTS_DIR/xray-vless.json"
+        return
+    fi
 
-    "$XRAY_BIN" run -c "$RESULTS_DIR/xray-client.json" > /dev/null 2>&1 &
+    "$XRAY_BIN" run -c "$RESULTS_DIR/xray-client.json" \
+        > "$RESULTS_DIR/xray-client.log" 2>&1 &
     local cli=$!; PIDS+=($cli)
-    wait_for_port 21080
+    if ! wait_for_port 21080 15; then
+        err "Xray client failed to start. Log:"
+        tail -20 "$RESULTS_DIR/xray-client.log" >&2 || true
+        kill $srv $cli 2>/dev/null || true
+        echo '{"label":"xray-vless","download_mbps":0,"memory_kb":0}' \
+            > "$RESULTS_DIR/xray-vless.json"
+        return
+    fi
 
     local mem_srv mem_cli mem
     mem_srv=$(get_rss_kb $srv)
