@@ -17,8 +17,11 @@ tracing = { workspace = true }
 anyhow = { workspace = true }
 rand = { workspace = true }
 subtle = "2"
-sysinfo = { workspace = true }
+sysinfo = { workspace = true, optional = true }
 x509-parser = { workspace = true }
 similar = { workspace = true }
 toml = { workspace = true }
 axum-server = { workspace = true }
+
+[features]
+default = ["sysinfo"]

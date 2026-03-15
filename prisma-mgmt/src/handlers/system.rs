@@ -6,8 +6,8 @@ use crate::MgmtState;
 
 #[derive(Serialize)]
 pub struct SystemInfoResponse {
-    pub version: String,
-    pub platform: String,
+    pub version: &'static str,
+    pub platform: &'static str,
     pub pid: u32,
     pub cpu_usage: f32,
     pub memory_used_mb: u64,
@@ -23,10 +23,7 @@ pub struct ListenerInfo {
 }
 
 pub async fn get_system_info(State(state): State<MgmtState>) -> Json<SystemInfoResponse> {
-    use sysinfo::System;
-    let mut sys = System::new();
-    sys.refresh_cpu_all();
-    sys.refresh_memory();
+    let (cpu_usage, memory_used_mb, memory_total_mb) = get_system_metrics();
 
     let config = state.config.read().await;
     let mut listeners = vec![
@@ -46,23 +43,42 @@ pub async fn get_system_info(State(state): State<MgmtState>) -> Json<SystemInfoR
         });
     }
 
-    // Try to get cert expiry if TLS is configured
-    let cert_expiry_days = if let Some(tls) = &config.tls {
-        get_cert_expiry_days(&tls.cert_path)
-    } else {
-        None
-    };
+    let cert_expiry_days = config
+        .tls
+        .as_ref()
+        .and_then(|tls| get_cert_expiry_days(&tls.cert_path));
 
     Json(SystemInfoResponse {
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        platform: std::env::consts::OS.to_string(),
+        version: env!("CARGO_PKG_VERSION"),
+        platform: std::env::consts::OS,
         pid: std::process::id(),
-        cpu_usage: sys.global_cpu_usage(),
-        memory_used_mb: sys.used_memory() / 1024 / 1024,
-        memory_total_mb: sys.total_memory() / 1024 / 1024,
+        cpu_usage,
+        memory_used_mb,
+        memory_total_mb,
         listeners,
         cert_expiry_days,
     })
+}
+
+#[cfg(feature = "sysinfo")]
+fn get_system_metrics() -> (f32, u64, u64) {
+    use sysinfo::System;
+
+    const BYTES_PER_MB: u64 = 1024 * 1024;
+
+    let mut sys = System::new();
+    sys.refresh_cpu_all();
+    sys.refresh_memory();
+    (
+        sys.global_cpu_usage(),
+        sys.used_memory() / BYTES_PER_MB,
+        sys.total_memory() / BYTES_PER_MB,
+    )
+}
+
+#[cfg(not(feature = "sysinfo"))]
+fn get_system_metrics() -> (f32, u64, u64) {
+    (0.0, 0, 0)
 }
 
 fn get_cert_expiry_days(cert_path: &str) -> Option<i64> {
