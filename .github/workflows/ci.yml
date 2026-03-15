@@ -40,12 +40,8 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets
 
-      - name: Check
-        run: cargo check --workspace
-
   test:
     name: Test (${{ matrix.os }})
-    needs: check
     strategy:
       fail-fast: false
       matrix:
@@ -72,18 +68,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install nextest
-        if: runner.os != 'Windows'
         uses: taiki-e/install-action@v2
         with:
           tool: nextest
 
-      - name: Run tests (nextest)
-        if: runner.os != 'Windows'
+      - name: Run tests
         run: cargo nextest run --workspace --target ${{ matrix.target }}
-
-      - name: Run tests (Windows)
-        if: runner.os == 'Windows'
-        run: cargo test --workspace --target ${{ matrix.target }}
 
       - name: Run doctests
         run: cargo test --workspace --doc --target ${{ matrix.target }}

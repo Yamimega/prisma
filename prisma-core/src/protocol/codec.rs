@@ -240,25 +240,26 @@ pub fn decode_session_ticket(data: &[u8]) -> Result<SessionTicket, ProtocolError
 /// v2 padded: [cmd:1][flags:2 LE][stream_id:4][payload_len:2][payload:var][padding:var]
 pub fn encode_data_frame(frame: &DataFrame) -> Vec<u8> {
     let payload = encode_command_payload(&frame.command);
+    let has_length_prefix = frame.flags & FLAG_PADDED != 0 || frame.flags & FLAG_BUCKETED != 0;
+    let extra = if has_length_prefix { 2 } else { 0 };
+
+    let mut buf = Vec::with_capacity(7 + extra + payload.len());
+    // Common header: [cmd:1][flags:2 LE][stream_id:4]
+    buf.push(frame.command.cmd_byte());
+    buf.extend_from_slice(&frame.flags.to_le_bytes());
+    buf.extend_from_slice(&frame.stream_id.to_be_bytes());
+
     if frame.flags & FLAG_PADDED != 0 {
-        // Padded format: include payload_len so receiver can split payload from padding
-        let payload_len = payload.len() as u16;
-        let mut buf = Vec::with_capacity(7 + 2 + payload.len());
-        buf.push(frame.command.cmd_byte());
-        buf.extend_from_slice(&frame.flags.to_le_bytes());
-        buf.extend_from_slice(&frame.stream_id.to_be_bytes());
-        buf.extend_from_slice(&payload_len.to_be_bytes());
-        buf.extend_from_slice(&payload);
-        // Padding is appended by the caller after encoding (via encode_data_frame_padded)
-        buf
-    } else {
-        let mut buf = Vec::with_capacity(7 + payload.len());
-        buf.push(frame.command.cmd_byte());
-        buf.extend_from_slice(&frame.flags.to_le_bytes());
-        buf.extend_from_slice(&frame.stream_id.to_be_bytes());
-        buf.extend_from_slice(&payload);
-        buf
+        // Padded format: include payload_len so receiver can split payload from padding.
+        // Padding is appended by the caller (via encode_data_frame_padded).
+        buf.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    } else if frame.flags & FLAG_BUCKETED != 0 {
+        // Bucketed format: bucket_pad_len=0 placeholder; actual padding appended by caller
+        buf.extend_from_slice(&0u16.to_be_bytes());
     }
+
+    buf.extend_from_slice(&payload);
+    buf
 }
 
 /// Encode a DataFrame with padding appended.
@@ -287,22 +288,7 @@ pub fn decode_data_frame(data: &[u8]) -> Result<DataFrame, ProtocolError> {
     let flags = u16::from_le_bytes([data[1], data[2]]);
     let stream_id = u32::from_be_bytes(data[3..7].try_into().unwrap());
 
-    let payload = if flags & FLAG_BUCKETED != 0 {
-        // Bucketed format: [bucket_pad_len:2][payload:var][bucket_padding:var]
-        if data.len() < 9 {
-            return Err(ProtocolError::InvalidFrame(
-                "Bucketed DataFrame too short".to_string(),
-            ));
-        }
-        let bucket_pad_len = u16::from_be_bytes([data[7], data[8]]) as usize;
-        if data.len() < 9 + bucket_pad_len {
-            return Err(ProtocolError::InvalidFrame(
-                "Bucketed DataFrame pad_len exceeds frame".to_string(),
-            ));
-        }
-        // Strip bucket padding from the end
-        &data[9..data.len() - bucket_pad_len]
-    } else if flags & FLAG_PADDED != 0 {
+    let payload = if flags & FLAG_PADDED != 0 {
         // Padded format: [payload_len:2][payload:var][padding:var]
         if data.len() < 9 {
             return Err(ProtocolError::InvalidFrame(
@@ -317,6 +303,21 @@ pub fn decode_data_frame(data: &[u8]) -> Result<DataFrame, ProtocolError> {
         }
         // Strip padding — only return the actual payload
         &data[9..9 + payload_len]
+    } else if flags & FLAG_BUCKETED != 0 {
+        // Bucketed format: [bucket_pad_len:2][payload:var][bucket_padding:var]
+        if data.len() < 9 {
+            return Err(ProtocolError::InvalidFrame(
+                "Bucketed DataFrame too short".to_string(),
+            ));
+        }
+        let bucket_pad_len = u16::from_be_bytes([data[7], data[8]]) as usize;
+        if data.len() < 9 + bucket_pad_len {
+            return Err(ProtocolError::InvalidFrame(
+                "Bucketed DataFrame pad_len exceeds frame".to_string(),
+            ));
+        }
+        // Strip bucket padding from the end
+        &data[9..data.len() - bucket_pad_len]
     } else {
         &data[7..]
     };
@@ -349,11 +350,10 @@ pub fn encode_command_payload(cmd: &Command) -> Vec<u8> {
             remote_port,
             success,
         } => {
-            vec![
-                (remote_port >> 8) as u8,
-                *remote_port as u8,
-                u8::from(*success),
-            ]
+            let mut buf = Vec::with_capacity(3);
+            buf.extend_from_slice(&remote_port.to_be_bytes());
+            buf.push(u8::from(*success));
+            buf
         }
         Command::ForwardConnect { remote_port } => remote_port.to_be_bytes().to_vec(),
         // v3 commands
@@ -396,13 +396,7 @@ pub fn encode_command_payload(cmd: &Command) -> Vec<u8> {
             buf.extend_from_slice(data);
             buf
         }
-        Command::DnsQuery { query_id, data } => {
-            let mut buf = Vec::with_capacity(2 + data.len());
-            buf.extend_from_slice(&query_id.to_be_bytes());
-            buf.extend_from_slice(data);
-            buf
-        }
-        Command::DnsResponse { query_id, data } => {
+        Command::DnsQuery { query_id, data } | Command::DnsResponse { query_id, data } => {
             let mut buf = Vec::with_capacity(2 + data.len());
             buf.extend_from_slice(&query_id.to_be_bytes());
             buf.extend_from_slice(data);
@@ -558,25 +552,17 @@ fn decode_command_payload(cmd: u8, payload: &[u8]) -> Result<Command, ProtocolEr
                 data: payload[2..].to_vec(),
             })
         }
-        CMD_DNS_QUERY => {
+        CMD_DNS_QUERY | CMD_DNS_RESPONSE => {
             if payload.len() < 2 {
-                return Err(ProtocolError::InvalidFrame("DnsQuery too short".into()));
+                return Err(ProtocolError::InvalidFrame("DNS frame too short".into()));
             }
             let query_id = u16::from_be_bytes([payload[0], payload[1]]);
-            Ok(Command::DnsQuery {
-                query_id,
-                data: payload[2..].to_vec(),
-            })
-        }
-        CMD_DNS_RESPONSE => {
-            if payload.len() < 2 {
-                return Err(ProtocolError::InvalidFrame("DnsResponse too short".into()));
+            let data = payload[2..].to_vec();
+            if cmd == CMD_DNS_QUERY {
+                Ok(Command::DnsQuery { query_id, data })
+            } else {
+                Ok(Command::DnsResponse { query_id, data })
             }
-            let query_id = u16::from_be_bytes([payload[0], payload[1]]);
-            Ok(Command::DnsResponse {
-                query_id,
-                data: payload[2..].to_vec(),
-            })
         }
         CMD_CHALLENGE_RESP => {
             if payload.len() < 32 {
@@ -594,7 +580,12 @@ fn decode_command_payload(cmd: u8, payload: &[u8]) -> Result<Command, ProtocolEr
 
 /// Encode: [addr_type:1][address:var][port:2]
 fn encode_proxy_destination(dest: &ProxyDestination) -> Vec<u8> {
-    let mut buf = Vec::new();
+    let capacity = match &dest.address {
+        ProxyAddress::Ipv4(_) => 1 + 4 + 2,
+        ProxyAddress::Ipv6(_) => 1 + 16 + 2,
+        ProxyAddress::Domain(d) => 1 + 1 + d.len() + 2,
+    };
+    let mut buf = Vec::with_capacity(capacity);
     buf.push(dest.address.addr_type());
     match &dest.address {
         ProxyAddress::Ipv4(addr) => buf.extend_from_slice(&addr.octets()),

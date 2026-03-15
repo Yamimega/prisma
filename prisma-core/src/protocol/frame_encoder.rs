@@ -48,7 +48,7 @@ impl FrameEncoder {
     /// After writing `n` bytes into this slice, call `seal_data_frame` with `n`.
     pub fn payload_mut(&mut self) -> &mut [u8] {
         let payload_start = 2 + NONCE_SIZE + 2 + PADDED_HEADER_SIZE;
-        let payload_end = self.buf.len() - TAG_SIZE;
+        let payload_end = payload_start + MAX_PAYLOAD_SIZE;
         &mut self.buf[payload_start..payload_end]
     }
 

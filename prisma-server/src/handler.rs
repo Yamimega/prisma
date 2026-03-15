@@ -139,7 +139,7 @@ where
         );
         if let Some(ref fallback) = fallback_addr {
             let mut frame_bytes = Vec::with_capacity(2 + frame_len);
-            frame_bytes.extend_from_slice(&peek[0..2]);
+            frame_bytes.extend_from_slice(&peek[..2]);
             frame_bytes.extend_from_slice(&client_hello_buf);
             let _ = camouflage::decoy_relay(stream, fallback, &frame_bytes).await;
         }
@@ -168,7 +168,7 @@ where
                 .fetch_add(1, Ordering::Relaxed);
             if let Some(ref fallback) = fallback_addr {
                 let mut frame_bytes = Vec::with_capacity(2 + frame_len);
-                frame_bytes.extend_from_slice(&peek[0..2]);
+                frame_bytes.extend_from_slice(&peek[..2]);
                 frame_bytes.extend_from_slice(&client_hello_buf);
                 let _ = camouflage::decoy_relay(stream, fallback, &frame_bytes).await;
             }
@@ -412,24 +412,20 @@ where
     let (plaintext, _nonce) = decrypt_frame(cipher.as_ref(), &frame_buf)?;
     let frame = decode_data_frame(&plaintext)?;
 
-    match frame.command {
-        Command::ChallengeResponse { hash } => {
-            // Verify challenge response
-            if let Some(ref challenge) = session_keys.challenge {
-                let expected: [u8; 32] = blake3::hash(challenge).into();
-                if !util::ct_eq(&hash, &expected) {
-                    return Err(anyhow::anyhow!("Invalid challenge response"));
-                }
-            } else {
-                return Err(anyhow::anyhow!("No challenge to verify"));
-            }
-        }
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Expected ChallengeResponse as first frame, got cmd={}",
-                frame.command.cmd_byte()
-            ));
-        }
+    let Command::ChallengeResponse { hash } = frame.command else {
+        return Err(anyhow::anyhow!(
+            "Expected ChallengeResponse as first frame, got cmd={}",
+            frame.command.cmd_byte()
+        ));
+    };
+
+    let challenge = session_keys
+        .challenge
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("No challenge to verify"))?;
+    let expected: [u8; 32] = blake3::hash(challenge).into();
+    if !util::ct_eq(&hash, &expected) {
+        return Err(anyhow::anyhow!("Invalid challenge response"));
     }
 
     // Now read the actual first command frame (Connect, RegisterForward, etc.)
@@ -575,7 +571,6 @@ where
                 }
                 Err(_) => Vec::new(),
             };
-            let cipher = create_cipher(session_keys.cipher_suite, &session_keys.session_key);
             let mut session_keys = session_keys;
             let response_frame = DataFrame {
                 command: Command::DnsResponse {
@@ -589,9 +584,7 @@ where
             let nonce = session_keys.next_server_nonce();
             let encrypted = encrypt_frame(cipher.as_ref(), &nonce, &frame_bytes)?;
             let mut tunnel_write = tunnel_write;
-            let len = (encrypted.len() as u16).to_be_bytes();
-            tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &len).await?;
-            tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &encrypted).await?;
+            util::write_framed(&mut tunnel_write, &encrypted).await?;
             Ok(())
         }
         Command::SpeedTest {
@@ -601,7 +594,6 @@ where
         } => {
             info!(direction, duration_secs, "Speed test requested");
             // Speed test: server sends random data for the specified duration
-            let cipher = create_cipher(session_keys.cipher_suite, &session_keys.session_key);
             let mut session_keys = session_keys;
             let mut tunnel_write = tunnel_write;
             if direction == 0 {
@@ -620,16 +612,10 @@ where
                     match encrypt_frame(cipher.as_ref(), &nonce, &frame_bytes) {
                         Ok(encrypted) => {
                             let len = (encrypted.len() as u16).to_be_bytes();
-                            if tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &len)
-                                .await
-                                .is_err()
-                            {
+                            if tunnel_write.write_all(&len).await.is_err() {
                                 break;
                             }
-                            if tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &encrypted)
-                                .await
-                                .is_err()
-                            {
+                            if tunnel_write.write_all(&encrypted).await.is_err() {
                                 break;
                             }
                         }
@@ -646,9 +632,7 @@ where
             let frame_bytes = encode_data_frame(&close_frame);
             let nonce = session_keys.next_server_nonce();
             if let Ok(encrypted) = encrypt_frame(cipher.as_ref(), &nonce, &frame_bytes) {
-                let len = (encrypted.len() as u16).to_be_bytes();
-                let _ = tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &len).await;
-                let _ = tokio::io::AsyncWriteExt::write_all(&mut tunnel_write, &encrypted).await;
+                let _ = util::write_framed(&mut tunnel_write, &encrypted).await;
             }
             Ok(())
         }

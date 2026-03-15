@@ -21,7 +21,7 @@ pub struct TrafficShapingConfig {
     #[serde(default = "default_bucket_sizes")]
     pub bucket_sizes: Vec<u16>,
     /// Maximum timing jitter (ms) applied to handshake-phase frames.
-    #[serde(default = "default_timing_jitter_ms")]
+    #[serde(default)]
     pub timing_jitter_ms: u32,
     /// Interval (ms) for chaff frame injection when idle.
     /// 0 = disabled.
@@ -38,7 +38,7 @@ impl Default for TrafficShapingConfig {
         Self {
             padding_mode: default_padding_mode(),
             bucket_sizes: default_bucket_sizes(),
-            timing_jitter_ms: default_timing_jitter_ms(),
+            timing_jitter_ms: 0,
             chaff_interval_ms: 0,
             coalesce_window_ms: default_coalesce_window_ms(),
         }
@@ -51,10 +51,6 @@ fn default_padding_mode() -> String {
 
 fn default_bucket_sizes() -> Vec<u16> {
     vec![128, 256, 512, 1024, 2048, 4096, 8192, 16384]
-}
-
-fn default_timing_jitter_ms() -> u32 {
-    0
 }
 
 fn default_coalesce_window_ms() -> u32 {

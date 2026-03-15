@@ -65,35 +65,17 @@ impl BandwidthLimiterStore {
     /// Check if upload of `bytes` is allowed for the client.
     /// Returns `true` if allowed (or no limit set), `false` if rate-limited.
     pub async fn check_upload(&self, client_id: &str, bytes: u32) -> bool {
-        let limiters = self.upload.read().await;
-        if let Some(limiter) = limiters.get(client_id) {
-            let cells = NonZeroU32::new(bytes.max(1)).unwrap();
-            limiter.check_n(cells).is_ok()
-        } else {
-            true // no limit
-        }
+        check_limiter(&self.upload, client_id, bytes).await
     }
 
     /// Check if download of `bytes` is allowed for the client.
     pub async fn check_download(&self, client_id: &str, bytes: u32) -> bool {
-        let limiters = self.download.read().await;
-        if let Some(limiter) = limiters.get(client_id) {
-            let cells = NonZeroU32::new(bytes.max(1)).unwrap();
-            limiter.check_n(cells).is_ok()
-        } else {
-            true
-        }
+        check_limiter(&self.download, client_id, bytes).await
     }
 
     /// Wait until upload of `bytes` is allowed.
     pub async fn wait_upload(&self, client_id: &str, bytes: u32) {
-        let limiters = self.upload.read().await;
-        if let Some(limiter) = limiters.get(client_id) {
-            let cells = NonZeroU32::new(bytes.max(1)).unwrap();
-            let limiter = limiter.clone();
-            drop(limiters); // release read lock
-            let _ = limiter.until_n_ready(cells).await;
-        }
+        wait_limiter(&self.upload, client_id, bytes).await;
     }
 
     /// Check if a client has any bandwidth limits configured.
@@ -104,13 +86,38 @@ impl BandwidthLimiterStore {
 
     /// Wait until download of `bytes` is allowed.
     pub async fn wait_download(&self, client_id: &str, bytes: u32) {
-        let limiters = self.download.read().await;
-        if let Some(limiter) = limiters.get(client_id) {
-            let cells = NonZeroU32::new(bytes.max(1)).unwrap();
-            let limiter = limiter.clone();
-            drop(limiters);
-            let _ = limiter.until_n_ready(cells).await;
-        }
+        wait_limiter(&self.download, client_id, bytes).await;
+    }
+}
+
+/// Check if `bytes` is allowed by the limiter for the given client.
+/// Returns `true` if allowed or no limit is configured.
+async fn check_limiter(
+    limiters: &RwLock<HashMap<String, Arc<Limiter>>>,
+    client_id: &str,
+    bytes: u32,
+) -> bool {
+    let map = limiters.read().await;
+    if let Some(limiter) = map.get(client_id) {
+        let cells = NonZeroU32::new(bytes.max(1)).unwrap();
+        limiter.check_n(cells).is_ok()
+    } else {
+        true
+    }
+}
+
+/// Wait until `bytes` is allowed by the limiter for the given client.
+async fn wait_limiter(
+    limiters: &RwLock<HashMap<String, Arc<Limiter>>>,
+    client_id: &str,
+    bytes: u32,
+) {
+    let map = limiters.read().await;
+    if let Some(limiter) = map.get(client_id) {
+        let cells = NonZeroU32::new(bytes.max(1)).unwrap();
+        let limiter = limiter.clone();
+        drop(map); // release read lock before awaiting
+        let _ = limiter.until_n_ready(cells).await;
     }
 }
 

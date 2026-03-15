@@ -15,6 +15,8 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: prisma
+  SCCACHE_GHA_ENABLED: true
+  RUSTC_WRAPPER: sccache
 
 jobs:
   dashboard:
@@ -93,6 +95,7 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
@@ -100,7 +103,9 @@ jobs:
       # Install cross for targets that need it
       - name: Install cross
         if: matrix.cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
 
       # Build with cross or cargo
       - name: Build (cross)

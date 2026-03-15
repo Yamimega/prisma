@@ -115,5 +115,5 @@ rcgen = "0.13"
 
 [profile.release]
 strip = true
-lto = true
+lto = "thin"
 codegen-units = 1
