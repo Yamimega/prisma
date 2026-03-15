@@ -775,12 +775,12 @@ ThreadedHTTPServer(('', $HTTP_PORT), Handler).serve_forever()
 # Measurement primitives
 # ---------------------------------------------------------------------------
 
-# Single-stream download throughput (Mbps). Median of 3 runs.
+# Single-stream download throughput (Mbps). Median of 5 runs.
 # Outputs two values: median_mbps cv_pct
 measure_download() {
     local socks_port=$1
     local speeds=()
-    for _ in 1 2 3; do
+    for _ in 1 2 3 4 5; do
         local speed
         speed=$(curl -o /dev/null -s -w '%{speed_download}' \
             --connect-timeout 10 --max-time 120 \
@@ -844,11 +844,11 @@ print(f'{sum(trimmed)/len(trimmed):.1f}' if trimmed else '0.0')
 " 2>/dev/null || echo "0"
 }
 
-# Upload throughput (Mbps). Median of 3 runs.
+# Upload throughput (Mbps). Median of 5 runs.
 measure_upload() {
     local socks_port=$1
     local speeds=()
-    for _ in 1 2 3; do
+    for _ in 1 2 3 4 5; do
         local speed
         speed=$(curl -s -w '%{speed_upload}' -o /dev/null \
             --connect-timeout 10 --max-time 120 \
@@ -864,13 +864,13 @@ print(f'{v[len(v)//2]:.1f}')
 " 2>/dev/null || echo "0"
 }
 
-# Aggregate throughput with N parallel downloads (Mbps). Median of 3 runs.
+# Aggregate throughput with N parallel downloads (Mbps). Median of 5 runs.
 # Outputs two values: median_mbps cv_pct
 measure_concurrent() {
     local socks_port=$1 n=${2:-$CONCURRENCY}
     local agg_speeds=()
 
-    for _ in 1 2 3; do
+    for _ in 1 2 3 4 5; do
         local tmpdir
         tmpdir=$(mktemp -d)
         for i in $(seq 1 "$n"); do
@@ -909,7 +909,7 @@ print(f'{median:.1f} {cv:.1f}')
 # Median of 3 RSS snapshots (1s apart) for given PIDs.
 measure_memory() {
     local samples=()
-    for _ in 1 2 3; do
+    for _ in 1 2 3 4 5; do
         local total=0
         for pid in "$@"; do
             local rss
@@ -930,9 +930,9 @@ measure_memory() {
 run_baseline() {
     log "=== Baseline (no proxy) ==="
 
-    # Download: median of 3 runs
+    # Download: median of 5 runs
     local dl_speeds=()
-    for _ in 1 2 3; do
+    for _ in 1 2 3 4 5; do
         local speed
         speed=$(curl -o /dev/null -s -w '%{speed_download}' \
             --connect-timeout 10 --max-time 120 \
@@ -980,9 +980,9 @@ trimmed = v[1:-1] if len(v) >= 3 else v
 print(f'{sum(trimmed)/len(trimmed):.1f}' if trimmed else '0.0')
 " 2>/dev/null || echo "0")
 
-    # Upload: median of 3 runs
+    # Upload: median of 5 runs
     local ul_speeds=()
-    for _ in 1 2 3; do
+    for _ in 1 2 3 4 5; do
         local uspeed
         uspeed=$(curl -s -w '%{speed_upload}' -o /dev/null \
             --connect-timeout 10 --max-time 120 \
@@ -1048,7 +1048,7 @@ wait_for_tunnel() {
 # Warmup: make 3 small requests to warm TLS cache, congestion window, buffers.
 warmup_tunnel() {
     local socks_port=$1
-    for _ in 1 2 3; do
+    for _ in 1 2 3 4 5; do
         curl -o /dev/null -s --connect-timeout 3 --max-time 5 \
             --socks5-hostname "127.0.0.1:$socks_port" \
             "http://127.0.0.1:$HTTP_PORT/ping" 2>/dev/null || true
@@ -1104,20 +1104,20 @@ run_prisma_scenario() {
     local handshake_ms
     handshake_ms=$(measure_handshake "$socks_port")
 
-    # Single-stream throughput (median of 3 runs)
-    log "  Measuring single-stream throughput (3 runs)..."
+    # Single-stream throughput (median of 5 runs)
+    log "  Measuring single-stream throughput (5 runs)..."
     local dl_result dl_mbps dl_cv
     dl_result=$(measure_download "$socks_port")
     dl_mbps=$(echo "$dl_result" | awk '{print $1}')
     dl_cv=$(echo "$dl_result" | awk '{print $2}')
 
-    # Upload throughput (median of 3 runs)
-    log "  Measuring upload throughput (3 runs)..."
+    # Upload throughput (median of 5 runs)
+    log "  Measuring upload throughput (5 runs)..."
     local ul_mbps
     ul_mbps=$(measure_upload "$socks_port")
 
     # CPU + concurrent throughput (measure CPU ticks around the concurrent test)
-    log "  Measuring concurrent throughput (${CONCURRENCY}x parallel, 3 runs)..."
+    log "  Measuring concurrent throughput (${CONCURRENCY}x parallel, 5 runs)..."
     local cpu_before_srv cpu_before_cli t_before
     cpu_before_srv=$(get_cpu_ticks $srv)
     cpu_before_cli=$(get_cpu_ticks $cli)
@@ -1234,20 +1234,20 @@ run_xray_scenario() {
     local handshake_ms
     handshake_ms=$(measure_handshake "$socks_port")
 
-    # Single-stream throughput (median of 3 runs)
-    log "  Measuring single-stream throughput (3 runs)..."
+    # Single-stream throughput (median of 5 runs)
+    log "  Measuring single-stream throughput (5 runs)..."
     local dl_result dl_mbps dl_cv
     dl_result=$(measure_download "$socks_port")
     dl_mbps=$(echo "$dl_result" | awk '{print $1}')
     dl_cv=$(echo "$dl_result" | awk '{print $2}')
 
-    # Upload throughput (median of 3 runs)
-    log "  Measuring upload throughput (3 runs)..."
+    # Upload throughput (median of 5 runs)
+    log "  Measuring upload throughput (5 runs)..."
     local ul_mbps
     ul_mbps=$(measure_upload "$socks_port")
 
     # CPU + concurrent throughput
-    log "  Measuring concurrent throughput (${CONCURRENCY}x parallel, 3 runs)..."
+    log "  Measuring concurrent throughput (${CONCURRENCY}x parallel, 5 runs)..."
     local cpu_before_srv cpu_before_cli t_before
     cpu_before_srv=$(get_cpu_ticks $srv)
     cpu_before_cli=$(get_cpu_ticks $cli)
@@ -1476,7 +1476,7 @@ print()
 print(f"  {G}{bar}{N}")
 print(f"  {B}Benchmark Results \u2014 {DATE}{N}")
 print(f"  {TEST_MB}MB payload \u00B7 {CONCURRENCY}x concurrent \u00B7 loopback")
-print(f"  Measurements: 3-run median (throughput), 7-sample trimmed mean (latency)")
+print(f"  Measurements: 5-run median (throughput), 7-sample trimmed mean (latency)")
 print(f"  {G}{bar}{N}")
 print()
 
@@ -1714,20 +1714,24 @@ if proxy_keys:
     scores = compute_scores()
     profile_names = list(profiles.keys())
 
-    sc_col = max(len(proxy_names[k]) for k in proxy_keys) + 2
-    sc_bar = "\u2500" * (22 + sc_col * len(proxy_keys))
+    # Sort columns by average score across all profiles (best first)
+    avg_scores = {k: sum(scores[p][k] for p in profile_names) / len(profile_names) for k in proxy_keys}
+    sorted_keys = sorted(proxy_keys, key=lambda k: avg_scores[k], reverse=True)
+
+    sc_col = max(len(proxy_names[k]) for k in sorted_keys) + 2
+    sc_bar = "\u2500" * (22 + sc_col * len(sorted_keys))
 
     print(f"  {C}{B}Use-Case Scores (weighted 0\u2013100){N}")
     print(f"  {sc_bar}")
-    sc_hdr = "".join(proxy_names[k].rjust(sc_col) for k in proxy_keys)
+    sc_hdr = "".join(proxy_names[k].rjust(sc_col) for k in sorted_keys)
     print(f"  {'':22}{sc_hdr}")
     print(f"  {sc_bar}")
 
     for pname in profile_names:
         row_scores = scores[pname]
-        best_k = max(proxy_keys, key=lambda k: row_scores[k])
+        best_k = max(sorted_keys, key=lambda k: row_scores[k])
         parts = []
-        for k in proxy_keys:
+        for k in sorted_keys:
             s = f"{row_scores[k]:.1f}"
             if k == best_k:
                 pad = sc_col - len(s) - 2  # 2 = star + space
@@ -1744,7 +1748,7 @@ md = []
 md.append(f"## Benchmark Results ({DATE})")
 md.append("")
 md.append(f"**Test:** {TEST_MB}MB payload, {CONCURRENCY}x concurrent streams, loopback")
-md.append(f"**Method:** 3-run median (throughput), 7-sample trimmed mean (latency/handshake), 3-snapshot median (memory)")
+md.append(f"**Method:** 5-run median (throughput), 7-sample trimmed mean (latency/handshake), 3-snapshot median (memory)")
 md.append("")
 
 hdr = "| Metric |" + "".join(f" {n} |" for _, n in present)
@@ -1847,15 +1851,15 @@ if proxy_keys:
     md.append("")
     md.append("### Use-Case Scores (weighted 0\u2013100)")
     md.append("")
-    sc_hdr = "| Use Case |" + "".join(f" {proxy_names[k]} |" for k in proxy_keys)
-    sc_sep = "|----------|" + "".join(f" {'---':>{len(proxy_names[k])}} |" for k in proxy_keys)
+    sc_hdr = "| Use Case |" + "".join(f" {proxy_names[k]} |" for k in sorted_keys)
+    sc_sep = "|----------|" + "".join(f" {'---':>{len(proxy_names[k])}} |" for k in sorted_keys)
     md.append(sc_hdr)
     md.append(sc_sep)
     for pname in profile_names:
         row_scores = scores[pname]
-        best_k = max(proxy_keys, key=lambda k: row_scores[k])
+        best_k = max(sorted_keys, key=lambda k: row_scores[k])
         row = f"| {pname} |"
-        for k in proxy_keys:
+        for k in sorted_keys:
             s = f"{row_scores[k]:.1f}"
             if k == best_k:
                 s = f"**{s}** \u2605"
@@ -1864,7 +1868,7 @@ if proxy_keys:
     md.append("")
     for pname in profile_names:
         row_scores = scores[pname]
-        best_k = max(proxy_keys, key=lambda k: row_scores[k])
+        best_k = max(sorted_keys, key=lambda k: row_scores[k])
         md.append(f"- **{pname}:** {proxy_names[best_k]} ({row_scores[best_k]:.1f}/100)")
 
 md.append("")
