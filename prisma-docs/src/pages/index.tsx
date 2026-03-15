@@ -7,47 +7,51 @@ import Heading from '@theme/Heading';
 
 import styles from './index.module.css';
 
-const features = [
-  {
-    title: 'Multi-Transport',
-    icon: '🔀',
-    description: 'QUIC v2, TCP+TLS, WebSocket, gRPC, XHTTP, XPorta — auto-fallback across transports when censors block one.',
-  },
-  {
-    title: 'PrismaTLS',
-    icon: '🛡️',
-    description: 'Active probing resistance with browser fingerprint mimicry, mask server pool, and padding beacon authentication.',
-  },
-  {
-    title: 'Traffic Shaping',
-    icon: '📊',
-    description: 'Bucket padding, chaff injection, timing jitter, and frame coalescing defeat encapsulated TLS fingerprinting.',
-  },
-  {
-    title: 'CDN Compatible',
-    icon: '☁️',
-    description: 'Hide your server behind Cloudflare. XPorta makes traffic indistinguishable from normal REST API calls.',
-  },
-  {
-    title: 'TUN Mode',
-    icon: '🌐',
-    description: 'System-wide proxy via virtual network interface. All apps proxied automatically — no per-app configuration.',
-  },
-  {
-    title: 'Built in Rust',
-    icon: '⚡',
-    description: 'Zero-copy I/O, async runtime, memory safety. Handles thousands of concurrent connections with minimal resources.',
-  },
-];
+function getFeatures() {
+  return [
+    {
+      title: translate({id: 'homepage.features.multiTransport.title', message: 'Multi-Transport'}),
+      icon: '🔀',
+      description: translate({id: 'homepage.features.multiTransport.description', message: 'QUIC v2, TCP+TLS, WebSocket, gRPC, XHTTP, XPorta — auto-fallback across transports when censors block one.'}),
+    },
+    {
+      title: translate({id: 'homepage.features.prismaTls.title', message: 'PrismaTLS'}),
+      icon: '🛡️',
+      description: translate({id: 'homepage.features.prismaTls.description', message: 'Active probing resistance with browser fingerprint mimicry, mask server pool, and padding beacon authentication.'}),
+    },
+    {
+      title: translate({id: 'homepage.features.trafficShaping.title', message: 'Traffic Shaping'}),
+      icon: '📊',
+      description: translate({id: 'homepage.features.trafficShaping.description', message: 'Bucket padding, chaff injection, timing jitter, and frame coalescing defeat encapsulated TLS fingerprinting.'}),
+    },
+    {
+      title: translate({id: 'homepage.features.cdnCompatible.title', message: 'CDN Compatible'}),
+      icon: '☁️',
+      description: translate({id: 'homepage.features.cdnCompatible.description', message: 'Hide your server behind Cloudflare. XPorta makes traffic indistinguishable from normal REST API calls.'}),
+    },
+    {
+      title: translate({id: 'homepage.features.tunMode.title', message: 'TUN Mode'}),
+      icon: '🌐',
+      description: translate({id: 'homepage.features.tunMode.description', message: 'System-wide proxy via virtual network interface. All apps proxied automatically — no per-app configuration.'}),
+    },
+    {
+      title: translate({id: 'homepage.features.builtInRust.title', message: 'Built in Rust'}),
+      icon: '⚡',
+      description: translate({id: 'homepage.features.builtInRust.description', message: 'Zero-copy I/O, async runtime, memory safety. Handles thousands of concurrent connections with minimal resources.'}),
+    },
+  ];
+}
 
-const highlights = [
-  { label: 'Encryption', value: 'ChaCha20-Poly1305 / AES-256-GCM' },
-  { label: 'Key Exchange', value: 'X25519 ECDH + BLAKE3 KDF' },
-  { label: 'Handshake', value: '1 RTT (0-RTT with tickets)' },
-  { label: 'UDP Relay', value: 'PrismaUDP + FEC Reed-Solomon' },
-  { label: 'Congestion', value: 'BBR / Brutal / Adaptive' },
-  { label: 'Obfuscation', value: 'Salamander v2 (nonce-based)' },
-];
+function getHighlights() {
+  return [
+    { label: translate({id: 'homepage.highlights.encryption', message: 'Encryption'}), value: 'ChaCha20-Poly1305 / AES-256-GCM' },
+    { label: translate({id: 'homepage.highlights.keyExchange', message: 'Key Exchange'}), value: 'X25519 ECDH + BLAKE3 KDF' },
+    { label: translate({id: 'homepage.highlights.handshake', message: 'Handshake'}), value: '1 RTT (0-RTT with tickets)' },
+    { label: translate({id: 'homepage.highlights.udpRelay', message: 'UDP Relay'}), value: 'PrismaUDP + FEC Reed-Solomon' },
+    { label: translate({id: 'homepage.highlights.congestion', message: 'Congestion'}), value: 'BBR / Brutal / Adaptive' },
+    { label: translate({id: 'homepage.highlights.obfuscation', message: 'Obfuscation'}), value: 'Salamander v2 (nonce-based)' },
+  ];
+}
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -91,7 +95,7 @@ function FeaturesSection() {
           <Translate id="homepage.features">Features</Translate>
         </Heading>
         <div className={styles.featureGrid}>
-          {features.map((f, i) => (
+          {getFeatures().map((f, i) => (
             <FeatureCard key={i} {...f} />
           ))}
         </div>
@@ -108,7 +112,7 @@ function HighlightsSection() {
           <Translate id="homepage.protocol">Protocol v4</Translate>
         </Heading>
         <div className={styles.highlightGrid}>
-          {highlights.map((h, i) => (
+          {getHighlights().map((h, i) => (
             <div key={i} className={styles.highlightItem}>
               <span className={styles.highlightLabel}>{h.label}</span>
               <span className={styles.highlightValue}>{h.value}</span>

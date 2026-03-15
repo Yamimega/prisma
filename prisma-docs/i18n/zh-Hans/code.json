@@ -11,43 +11,70 @@
   "homepage.description": {
     "message": "Prisma Proxy — 基于 Rust 构建的新一代加密代理基础设施"
   },
-  "homepage.features.dualTransport.title": {
-    "message": "双重传输"
+  "homepage.features": {
+    "message": "功能特性"
   },
-  "homepage.features.dualTransport.description": {
-    "message": "QUIC 为主，TCP 备用。通过 QUIC/TLS 内嵌 PrismaVeil 实现双重加密，提供纵深防御。"
+  "homepage.protocol": {
+    "message": "协议 v4"
   },
-  "homepage.features.modernCrypto.title": {
-    "message": "现代密码学"
-  },
-  "homepage.features.modernCrypto.description": {
-    "message": "X25519 ECDH、BLAKE3 KDF、ChaCha20-Poly1305 / AES-256-GCM AEAD，配合抗重放保护。"
-  },
-  "homepage.features.portForwarding.title": {
-    "message": "端口转发"
-  },
-  "homepage.features.portForwarding.description": {
-    "message": "通过加密隧道将本地服务暴露到服务器，实现 frp 风格的反向代理。"
-  },
-  "homepage.features.antiDetection.title": {
-    "message": "抗检测"
-  },
-  "homepage.features.antiDetection.description": {
-    "message": "TLS 伪装、诱饵回落、Salamander UDP 混淆和逐帧填充，抵抗流量分析。"
-  },
-  "homepage.features.cdnTransport.title": {
-    "message": "CDN 传输"
-  },
-  "homepage.features.cdnTransport.description": {
-    "message": "WebSocket、gRPC、XHTTP 和 XPorta 传输——通过任何 CDN 代理，与正常流量无法区分。"
-  },
-  "homepage.features.webDashboard.title": {
-    "message": "Web 仪表盘"
-  },
-  "homepage.features.webDashboard.description": {
-    "message": "基于 Next.js 的实时仪表盘，包含指标、客户端管理、日志流和 REST/WebSocket API。"
-  },
-  "homepage.quickStart.title": {
+  "homepage.quickStart": {
     "message": "快速上手"
+  },
+  "homepage.quickStartNote": {
+    "message": "安装二进制文件，生成凭证、TLS 证书和示例配置文件。"
+  },
+  "homepage.features.multiTransport.title": {
+    "message": "多重传输"
+  },
+  "homepage.features.multiTransport.description": {
+    "message": "QUIC v2、TCP+TLS、WebSocket、gRPC、XHTTP、XPorta — 审查封锁时自动切换传输协议。"
+  },
+  "homepage.features.prismaTls.title": {
+    "message": "PrismaTLS"
+  },
+  "homepage.features.prismaTls.description": {
+    "message": "主动探测防御，具备浏览器指纹模拟、伪装服务器池和填充信标认证。"
+  },
+  "homepage.features.trafficShaping.title": {
+    "message": "流量整形"
+  },
+  "homepage.features.trafficShaping.description": {
+    "message": "桶填充、干扰注入、时序抖动和帧合并，击败封装 TLS 指纹识别。"
+  },
+  "homepage.features.cdnCompatible.title": {
+    "message": "CDN 兼容"
+  },
+  "homepage.features.cdnCompatible.description": {
+    "message": "将服务器隐藏在 Cloudflare 背后。XPorta 使流量与正常 REST API 调用无法区分。"
+  },
+  "homepage.features.tunMode.title": {
+    "message": "TUN 模式"
+  },
+  "homepage.features.tunMode.description": {
+    "message": "通过虚拟网络接口实现系统级代理。所有应用自动代理，无需逐一配置。"
+  },
+  "homepage.features.builtInRust.title": {
+    "message": "Rust 构建"
+  },
+  "homepage.features.builtInRust.description": {
+    "message": "零拷贝 I/O、异步运行时、内存安全。以极少资源处理数千并发连接。"
+  },
+  "homepage.highlights.encryption": {
+    "message": "加密算法"
+  },
+  "homepage.highlights.keyExchange": {
+    "message": "密钥交换"
+  },
+  "homepage.highlights.handshake": {
+    "message": "握手"
+  },
+  "homepage.highlights.udpRelay": {
+    "message": "UDP 中继"
+  },
+  "homepage.highlights.congestion": {
+    "message": "拥塞控制"
+  },
+  "homepage.highlights.obfuscation": {
+    "message": "混淆"
   }
 }
